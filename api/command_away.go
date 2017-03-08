@@ -4,6 +4,7 @@
 package api
 
 import (
+	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
 )
 
@@ -31,12 +32,12 @@ func (me *AwayProvider) GetCommand(c *Context) *model.Command {
 	}
 }
 
-func (me *AwayProvider) DoCommand(c *Context, channelId string, message string) *model.CommandResponse {
+func (me *AwayProvider) DoCommand(c *Context, args *model.CommandArgs, message string) *model.CommandResponse {
 	rmsg := c.T("api.command_away.success")
 	if len(message) > 0 {
 		rmsg = message + " " + rmsg
 	}
-	SetStatusAwayIfNeeded(c.Session.UserId, true)
+	app.SetStatusAwayIfNeeded(c.Session.UserId, true)
 
 	return &model.CommandResponse{ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: rmsg}
 }

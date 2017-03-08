@@ -3,10 +3,10 @@
 
 import ReactDOM from 'react-dom';
 import {FormattedMessage} from 'react-intl';
-
 import {Modal} from 'react-bootstrap';
-
 import React from 'react';
+
+import {sortTeamsByDisplayName} from 'utils/utils.jsx';
 
 export default class SelectTeamModal extends React.Component {
     constructor(props) {
@@ -14,7 +14,6 @@ export default class SelectTeamModal extends React.Component {
 
         this.doSubmit = this.doSubmit.bind(this);
         this.doCancel = this.doCancel.bind(this);
-        this.compare = this.compare.bind(this);
     }
 
     doSubmit(e) {
@@ -24,18 +23,6 @@ export default class SelectTeamModal extends React.Component {
     doCancel() {
         this.props.onModalDismissed();
     }
-    compare(a, b) {
-        const teamA = a.display_name.toLowerCase();
-        const teamB = b.display_name.toLowerCase();
-
-        if (teamA < teamB) {
-            return -1;
-        }
-        if (teamA > teamB) {
-            return 1;
-        }
-        return 0;
-    }
 
     render() {
         if (this.props.teams == null) {
@@ -43,14 +30,13 @@ export default class SelectTeamModal extends React.Component {
         }
 
         const options = [];
-        const teamsArray = [];
+        let teamsArray = [];
 
         Reflect.ownKeys(this.props.teams).forEach((key) => {
             teamsArray.push(this.props.teams[key]);
         });
 
-        teamsArray.sort(this.compare);
-
+        teamsArray = teamsArray.sort(sortTeamsByDisplayName);
         for (let i = 0; i < teamsArray.length; i++) {
             const team = teamsArray[i];
             options.push(

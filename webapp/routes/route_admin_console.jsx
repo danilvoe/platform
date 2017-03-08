@@ -21,6 +21,7 @@ import ClusterSettings from 'components/admin_console/cluster_settings.jsx';
 import MetricsSettings from 'components/admin_console/metrics_settings.jsx';
 import SignupSettings from 'components/admin_console/signup_settings.jsx';
 import PasswordSettings from 'components/admin_console/password_settings.jsx';
+import MfaSettings from 'components/admin_console/mfa_settings.jsx';
 import PublicLinkSettings from 'components/admin_console/public_link_settings.jsx';
 import SessionSettings from 'components/admin_console/session_settings.jsx';
 import ConnectionSettings from 'components/admin_console/connection_settings.jsx';
@@ -34,6 +35,7 @@ import StorageSettings from 'components/admin_console/storage_settings.jsx';
 import ImageSettings from 'components/admin_console/image_settings.jsx';
 import CustomBrandSettings from 'components/admin_console/custom_brand_settings.jsx';
 import CustomEmojiSettings from 'components/admin_console/custom_emoji_settings.jsx';
+import LinkPreviewsSettings from 'components/admin_console/link_previews_settings.jsx';
 import LegalAndSupportSettings from 'components/admin_console/legal_and_support_settings.jsx';
 import NativeAppLinkSettings from 'components/admin_console/native_app_link_settings.jsx';
 import ComplianceSettings from 'components/admin_console/compliance_settings.jsx';
@@ -103,6 +105,10 @@ export default (
             <Route
                 path='saml'
                 component={SamlSettings}
+            />
+            <Route
+                path='mfa'
+                component={MfaSettings}
             />
         </Route>
         <Route path='security'>
@@ -174,6 +180,10 @@ export default (
             <Route
                 path='custom_emoji'
                 component={CustomEmojiSettings}
+            />
+            <Route
+                path='link_previews'
+                component={LinkPreviewsSettings}
             />
             <Route
                 path='legal_and_support'

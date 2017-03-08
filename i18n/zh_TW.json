@@ -217,7 +217,15 @@
   },
   {
     "id": "api.channel.create_direct_channel.invalid_user.app_error",
-    "translation": "無效的其他使用者 ID"
+    "translation": "建立直接傳訊頻道的使用者 ID 無效"
+  },
+  {
+    "id": "api.channel.create_group.bad_size.app_error",
+    "translation": "群組訊息頻道必須含有至少三個至多八個使用者"
+  },
+  {
+    "id": "api.channel.create_group.bad_user.app_error",
+    "translation": "有不存在的使用者"
   },
   {
     "id": "api.channel.delete_channel.archived",
@@ -300,8 +308,20 @@
     "translation": "%v 退出頻道。"
   },
   {
-    "id": "api.channel.post_update_channel_header_message_and_forget.join_leave.error",
-    "translation": "張貼 加入/退出 訊息 %v 失敗"
+    "id": "api.channel.post_update_channel_displayname_message_and_forget.create_post.error",
+    "translation": "發送顯示名稱更新訊息時失敗"
+  },
+  {
+    "id": "api.channel.post_update_channel_displayname_message_and_forget.retrieve_user.error",
+    "translation": "在更新頻道顯示名稱時無法取得使用者資訊"
+  },
+  {
+    "id": "api.channel.post_update_channel_displayname_message_and_forget.updated_from",
+    "translation": "%s 將原頻道標題由 %s 改為 %s"
+  },
+  {
+    "id": "api.channel.post_update_channel_header_message_and_forget.post.error",
+    "translation": "發送更新頻道標題訊息時失敗"
   },
   {
     "id": "api.channel.post_update_channel_header_message_and_forget.removed",
@@ -309,7 +329,7 @@
   },
   {
     "id": "api.channel.post_update_channel_header_message_and_forget.retrieve_user.error",
-    "translation": "嘗試儲存更新的頻道標題訊息 %v 時取得使用者資訊失敗"
+    "translation": "在更新頻道標題時無法取得使用者資訊"
   },
   {
     "id": "api.channel.post_update_channel_header_message_and_forget.updated_from",
@@ -321,7 +341,11 @@
   },
   {
     "id": "api.channel.post_user_add_remove_message_and_forget.error",
-    "translation": "張貼 加入/退出 訊息 %v 失敗"
+    "translation": "發送加入/退出 訊息失敗"
+  },
+  {
+    "id": "api.channel.remove.default.app_error",
+    "translation": "無法將使用者從預設的頻道移除 {{.Channel}}"
   },
   {
     "id": "api.channel.remove_member.permissions.app_error",
@@ -468,6 +492,10 @@
     "translation": "折疊"
   },
   {
+    "id": "api.command_collapse.success",
+    "translation": "圖片連結現在預設為折疊起來"
+  },
+  {
     "id": "api.command_echo.create.app_error",
     "translation": "無法建立 /echo 訊息 err=%v"
   },
@@ -488,6 +516,10 @@
     "translation": "'訊息' [延遲秒數]"
   },
   {
+    "id": "api.command_echo.message.app_error",
+    "translation": "使用 /echo 命令必須提供訊息。"
+  },
+  {
     "id": "api.command_echo.name",
     "translation": "回應"
   },
@@ -498,6 +530,10 @@
   {
     "id": "api.command_expand.name",
     "translation": "展開"
+  },
+  {
+    "id": "api.command_expand.success",
+    "translation": "圖片連結現在預設為展開"
   },
   {
     "id": "api.command_expand_collapse.fail.app_error",
@@ -542,10 +578,6 @@
   {
     "id": "api.command_logout.name",
     "translation": "登出"
-  },
-  {
-    "id": "api.command_logout.success_message",
-    "translation": "登出..."
   },
   {
     "id": "api.command_me.desc",
@@ -616,44 +648,144 @@
     "translation": "現在狀態為「上線」"
   },
   {
-    "id": "api.command_shortcuts.browser",
-    "translation": "#### 瀏覽器內建命令\n\nALT+LEFT：瀏覽紀錄的前一個頻道\nALT+RIGHT：瀏覽紀錄的下一個頻道\nCTRL+PLUS：增加字體尺寸(放大)\nCTRL+MINUS：減少字體尺寸(縮小)\nSHIFT+UP (在輸入欄)：標記現在到上一行同位置之間的文字\nSHIFT+DOWN (在輸入欄)：標記現在到下一行同位置之間的文字\nSHIFT+ENTER (在輸入欄)：新增一行\n"
+    "id": "api.command_shortcuts.browser.channel_next",
+    "translation": "{{.ChannelNextCmd}}：紀錄的下一個頻道\n"
   },
   {
-    "id": "api.command_shortcuts.browser_mac",
-    "translation": "#### 瀏覽器內建命令\n\nCMD+[：瀏覽紀錄的前一個頻道\nCMD+]：瀏覽紀錄的下一個頻道\nCMD+PLUS：增加字體尺寸(放大)\nCMD+MINUS：減少字體尺寸(縮小)\nSHIFT+UP (在輸入欄)：標記現在到上一行同位置之間的文字\nSHIFT+DOWN (在輸入欄)：標記現在到下一行同位置之間的文字\nSHIFT+ENTER (在輸入欄)：新增一行\n"
+    "id": "api.command_shortcuts.browser.channel_next.cmd",
+    "translation": "ALT+RIGHT"
+  },
+  {
+    "id": "api.command_shortcuts.browser.channel_next.cmd_mac",
+    "translation": "CMD+]"
+  },
+  {
+    "id": "api.command_shortcuts.browser.channel_prev",
+    "translation": "{{.ChannelPrevCmd}}：紀錄的前一個頻道\n"
+  },
+  {
+    "id": "api.command_shortcuts.browser.channel_prev.cmd",
+    "translation": "ALT+LEFT"
+  },
+  {
+    "id": "api.command_shortcuts.browser.channel_prev.cmd_mac",
+    "translation": "CMD+["
+  },
+  {
+    "id": "api.command_shortcuts.browser.font_decrease",
+    "translation": "{{.CmdOrCtrl}}+MINUS：減少字體尺寸(縮小)\n"
+  },
+  {
+    "id": "api.command_shortcuts.browser.font_increase",
+    "translation": "{{.CmdOrCtrl}}+PLUS：增加字體尺寸(放大)\n"
+  },
+  {
+    "id": "api.command_shortcuts.browser.header",
+    "translation": "#### 瀏覽器內建命令\n\n"
+  },
+  {
+    "id": "api.command_shortcuts.browser.highlight_next",
+    "translation": "SHIFT+DOWN (在輸入欄)：標記現在到下一行同位置之間的文字\n"
+  },
+  {
+    "id": "api.command_shortcuts.browser.highlight_prev",
+    "translation": "SHIFT+UP (在輸入欄)：標記現在到上一行同位置之間的文字\n"
+  },
+  {
+    "id": "api.command_shortcuts.browser.newline",
+    "translation": "SHIFT+ENTER (在輸入欄)：新增一行\n"
+  },
+  {
+    "id": "api.command_shortcuts.cmd",
+    "translation": "CMD"
+  },
+  {
+    "id": "api.command_shortcuts.ctrl",
+    "translation": "CTRL"
   },
   {
     "id": "api.command_shortcuts.desc",
     "translation": "顯示鍵盤快捷鍵列表"
   },
   {
-    "id": "api.command_shortcuts.files",
-    "translation": "#### 檔案\n\nCTRL+U：上傳檔案\n\n"
+    "id": "api.command_shortcuts.files.header",
+    "translation": "#### 檔案\n\n"
   },
   {
-    "id": "api.command_shortcuts.files_mac",
-    "translation": "#### 檔案\n\nCMD+U：上傳檔案\n\n"
+    "id": "api.command_shortcuts.files.upload",
+    "translation": "{{.CmdOrCtrl}}+U：上傳檔案\n\n"
   },
   {
-    "id": "api.command_shortcuts.msgs",
-    "translation": "#### 訊息\n\nESC：將當前頻道所有訊息設為已讀\nCTRL+UP (在空的輸入欄)：顯示上一個您輸入的訊息或是斜線命令\nCTRL+DOWN (在空的輸入欄)：顯示下一個您輸入的訊息或是斜線命令\nUP (在空的輸入欄)：編輯當前頻道您的上一個訊息\n@[文字]+TAB：自動完成以[文字]起始的@使用者帳號\n~[文字]+TAB：自動完成以[文字]起始的頻道\n:[文字]+TAB：自動完成以[文字]起始的顏文字\n\n"
+    "id": "api.command_shortcuts.header",
+    "translation": "### 鍵盤快捷鍵\n\n"
   },
   {
-    "id": "api.command_shortcuts.msgs_mac",
-    "translation": "#### 訊息\n\nESC：將當前頻道所有訊息設為已讀\nCMD+UP (在空的輸入欄)：顯示上一個您輸入的訊息或是斜線命令\nCMD+DOWN (在空的輸入欄)：顯示下一個您輸入的訊息或是斜線命令\nUP (在空的輸入欄)：編輯當前頻道您的上一個訊息\n@[文字]+TAB：自動完成以[文字]起始的@使用者帳號\n~[文字]+TAB：自動完成以[文字]起始的頻道\n:[文字]+TAB：自動完成以[文字]起始的顏文字\n\n"
+    "id": "api.command_shortcuts.msgs.comp_channel",
+    "translation": "~[文字]+TAB：自動完成以[文字]起始的頻道\n"
+  },
+  {
+    "id": "api.command_shortcuts.msgs.comp_emoji",
+    "translation": ":[文字]+TAB：自動完成以[文字]起始的顏文字\n\n"
+  },
+  {
+    "id": "api.command_shortcuts.msgs.comp_username",
+    "translation": "@[文字]+TAB：自動完成以[文字]起始的@使用者帳號\n"
+  },
+  {
+    "id": "api.command_shortcuts.msgs.edit",
+    "translation": "UP (在空的輸入欄)：編輯當前頻道您的上一個訊息\n"
+  },
+  {
+    "id": "api.command_shortcuts.msgs.header",
+    "translation": "#### 訊息\n\n"
+  },
+  {
+    "id": "api.command_shortcuts.msgs.mark_as_read",
+    "translation": "ESC：將當前頻道所有訊息設為已讀\n"
+  },
+  {
+    "id": "api.command_shortcuts.msgs.reprint_next",
+    "translation": "{{.CmdOrCtrl}}+DOWN (在空的輸入欄)：顯示下一個您輸入的訊息或是斜線命令\n"
+  },
+  {
+    "id": "api.command_shortcuts.msgs.reprint_prev",
+    "translation": "{{.CmdOrCtrl}}+UP (在空的輸入欄)：顯示上一個您輸入的訊息或是斜線命令\n"
   },
   {
     "id": "api.command_shortcuts.name",
     "translation": "快捷鍵"
   },
   {
-    "id": "api.command_shortcuts.nav",
-    "translation": "### 鍵盤快捷鍵\n\n#### 瀏覽\n\nALT+UP：側邊欄裡面上一個頻道或直接訊息\nALT+DOWN：側邊欄裡面下一個頻道或直接訊息\nALT+SHIFT+UP：側邊欄裡面上一個有未讀訊息的頻道或直接訊息\nALT+SHIFT+DOWN：側邊欄裡面下一個有未讀訊息的頻道或直接訊息\nCTRL+K：開啟快速切換頻道對話框\nCTRL+SHIFT+A：開啟帳號設定\nCTRL+SHIFT+M：開啟最近提及您的訊息\n\n"
+    "id": "api.command_shortcuts.nav.header",
+    "translation": "#### 瀏覽\n\n"
   },
   {
-    "id": "api.command_shortcuts.nav_mac",
-    "translation": "### 鍵盤快捷鍵\n\n#### 瀏覽\n\nALT+UP：側邊欄裡面上一個頻道或直接訊息\nALT+DOWN：側邊欄裡面下一個頻道或直接訊息\nALT+SHIFT+UP：側邊欄裡面上一個有未讀訊息的頻道或直接訊息\nALT+SHIFT+DOWN：側邊欄裡面下一個有未讀訊息的頻道或直接訊息\nCMD+K：開啟快速切換頻道對話框\nCMD+SHIFT+A：開啟帳號設定\nCMD+SHIFT+M：開啟最近提及您的訊息\n\n"
+    "id": "api.command_shortcuts.nav.next",
+    "translation": "ALT+DOWN：側邊欄裡面下一個頻道或直接訊息\n"
+  },
+  {
+    "id": "api.command_shortcuts.nav.prev",
+    "translation": "ALT+UP：側邊欄裡面上一個頻道或直接訊息\n"
+  },
+  {
+    "id": "api.command_shortcuts.nav.recent_mentions",
+    "translation": "{{.CmdOrCtrl}}+SHIFT+M：開啟最近提及您的訊息\n\n"
+  },
+  {
+    "id": "api.command_shortcuts.nav.settings",
+    "translation": "{{.CmdOrCtrl}}+SHIFT+A：開啟帳號設定\n"
+  },
+  {
+    "id": "api.command_shortcuts.nav.switcher",
+    "translation": "{{.CmdOrCtrl}}+K：開啟快速切換頻道對話框\n"
+  },
+  {
+    "id": "api.command_shortcuts.nav.unread_next",
+    "translation": "ALT+SHIFT+DOWN：側邊欄裡面下一個有未讀訊息的頻道或直接訊息\n"
+  },
+  {
+    "id": "api.command_shortcuts.nav.unread_prev",
+    "translation": "ALT+SHIFT+UP：側邊欄裡面上一個有未讀訊息的頻道或直接訊息\n"
   },
   {
     "id": "api.command_shrug.desc",
@@ -672,8 +804,16 @@
     "translation": "抱歉，無法找到頁面。"
   },
   {
+    "id": "api.context.invalid_body_param.app_error",
+    "translation": "要求內容中缺少 {{.Name}} 或是該值為無效"
+  },
+  {
     "id": "api.context.invalid_param.app_error",
     "translation": "無效的 {{.Name}} 參數"
+  },
+  {
+    "id": "api.context.invalid_session.error",
+    "translation": "無效工作階段 err=%v"
   },
   {
     "id": "api.context.invalid_team_url.debug",
@@ -681,7 +821,15 @@
   },
   {
     "id": "api.context.invalid_token.error",
-    "translation": "無效的工作階段 token=%v, err=%v"
+    "translation": "無效工作階段 token={{.Token}}, err={{.Error}}"
+  },
+  {
+    "id": "api.context.invalid_url_param.app_error",
+    "translation": "要求網址中缺少 {{.Name}} 參數或是該值為無效 "
+  },
+  {
+    "id": "api.context.invalidate_all_caches",
+    "translation": "清除所有的快取"
   },
   {
     "id": "api.context.last_activity_at.error",
@@ -690,6 +838,14 @@
   {
     "id": "api.context.log.error",
     "translation": "%v:%v code=%v rid=%v uid=%v ip=%v %v [細節: %v]"
+  },
+  {
+    "id": "api.context.mfa_required.app_error",
+    "translation": "此伺服器要求多重要素驗證。"
+  },
+  {
+    "id": "api.context.missing_teamid.app_error",
+    "translation": "找不到團隊 ID"
   },
   {
     "id": "api.context.permissions.app_error",
@@ -744,6 +900,10 @@
     "translation": "前往發文"
   },
   {
+    "id": "api.email_batching.render_batched_post.group_message",
+    "translation": "群組訊息"
+  },
+  {
     "id": "api.email_batching.render_batched_post.sender.app_error",
     "translation": "找不到批次郵件通知文章的發文者"
   },
@@ -792,6 +952,10 @@
   {
     "id": "api.emoji.create.too_large.app_error",
     "translation": "無法建立繪文字。圖片必須小於1 MB。"
+  },
+  {
+    "id": "api.emoji.delete.delete_reactions.app_error",
+    "translation": "刪除名為 %v 的繪文字時無法刪除互動"
   },
   {
     "id": "api.emoji.delete.permissions.app_error",
@@ -1002,6 +1166,10 @@
     "translation": "從本地儲存讀取時遇到錯誤"
   },
   {
+    "id": "api.file.upload_file.bad_parse.app_error",
+    "translation": "無法上傳檔案。無法解析標頭。"
+  },
+  {
     "id": "api.file.upload_file.large_image.app_error",
     "translation": "無法上傳超過最大尺寸的檔案：{{.Filename}}"
   },
@@ -1034,6 +1202,10 @@
     "translation": "正在初始化一般 API 路徑"
   },
   {
+    "id": "api.import.import_post.attach_files.error",
+    "translation": "附加檔案於文章時錯誤：postId=%v, fileIds=%v, message=%v"
+  },
+  {
     "id": "api.import.import_post.saving.debug",
     "translation": "儲存訊息時遇到錯誤。user=%v, message=%v"
   },
@@ -1052,6 +1224,10 @@
   {
     "id": "api.import.import_user.set_email.error",
     "translation": "設定電子郵件為已驗證時失敗 err=%v"
+  },
+  {
+    "id": "api.incoming_webhook.disabled.app_errror",
+    "translation": "傳入的 Webhook 已被系統管理員停用。"
   },
   {
     "id": "api.license.add_license.array.app_error",
@@ -1324,24 +1500,8 @@
     "translation": "您沒有適當的權限"
   },
   {
-    "id": "api.post.handle_post_events_and_forget.channel.error",
-    "translation": "取得頻道時遇到錯誤 channel_id=%s, err=%v"
-  },
-  {
     "id": "api.post.handle_post_events_and_forget.members.error",
     "translation": "取得頻道成員失敗 channel_id=%v err=%v"
-  },
-  {
-    "id": "api.post.handle_post_events_and_forget.profiles.error",
-    "translation": "取得使用者資訊失敗 team_id=%v, err=%v"
-  },
-  {
-    "id": "api.post.handle_post_events_and_forget.team.error",
-    "translation": "取得團隊時遇到錯誤 team_id=%s, err=%v"
-  },
-  {
-    "id": "api.post.handle_post_events_and_forget.user.error",
-    "translation": "取得使用者時遇到錯誤 user_id=%s, err=%v"
   },
   {
     "id": "api.post.handle_webhook_events_and_forget.create_post.error",
@@ -1352,16 +1512,12 @@
     "translation": "POST 事件失敗 err=%s"
   },
   {
-    "id": "api.post.handle_webhook_events_and_forget.getting.error",
-    "translation": "團隊取得 Webhook 時遇到錯誤 err=%v"
-  },
-  {
     "id": "api.post.init.debug",
     "translation": "正在初始化貼文 API 路徑"
   },
   {
     "id": "api.post.make_direct_channel_visible.get_2_members.error",
-    "translation": "取得直接訊息頻道的兩位成員失敗 channel_id=%v"
+    "translation": "取得直接訊息頻道的兩位成員失敗 channel_id={{.ChannelId}}"
   },
   {
     "id": "api.post.make_direct_channel_visible.get_members.error",
@@ -1376,20 +1532,16 @@
     "translation": "更新直接訊息頻道的偏好設定失敗 user_id=%v other_user_id=%v err=%v"
   },
   {
-    "id": "api.post.notification.here.warn",
-    "translation": "無法寄送 @here 通知給在線使用者 err=%v"
-  },
-  {
     "id": "api.post.notification.member_profile.warn",
     "translation": "無法取得頻道成員資訊 user_id=%v"
   },
   {
-    "id": "api.post.send_notifications_and_forget.clear_push_notification.debug",
-    "translation": "正在清除至 %v 的推播通知，channel_id %v"
+    "id": "api.post.send_notifications.user_id.debug",
+    "translation": "此訊息的發起人不在頻道，將不發送通知 post_id=%v channel_id=%v user_id=%v"
   },
   {
-    "id": "api.post.send_notifications_and_forget.comment_thread.error",
-    "translation": "在發送通知時取得註解文章失敗 root_post_id=%v err=%v"
+    "id": "api.post.send_notifications_and_forget.clear_push_notification.debug",
+    "translation": "正在清除至 %v 的推播通知，channel_id %v"
   },
   {
     "id": "api.post.send_notifications_and_forget.files.error",
@@ -1437,23 +1589,11 @@
   },
   {
     "id": "api.post.send_notifications_and_forget.push_notification.error",
-    "translation": "無法發送推播 device_id=%v, err=%v"
-  },
-  {
-    "id": "api.post.send_notifications_and_forget.send.error",
-    "translation": "提及通知電子郵件傳送失敗 email=%v err=%v"
+    "translation": "發送推播失敗 device_id={{.DeviceId}}, err={{.Error}}"
   },
   {
     "id": "api.post.send_notifications_and_forget.sent",
     "translation": "{{.Prefix}} {{.Filenames}} 已送出"
-  },
-  {
-    "id": "api.post.send_notifications_and_forget.sessions.error",
-    "translation": "於通知中取得工作階段失敗 id=%v, err=%v"
-  },
-  {
-    "id": "api.post.send_notifications_and_forget.user_id.error",
-    "translation": "GetProfiles 找不到資料的 user_id 貼文 user_id=%v"
   },
   {
     "id": "api.post.update_mention_count_and_forget.update_error",
@@ -1468,8 +1608,16 @@
     "translation": "您沒有適當的權限"
   },
   {
+    "id": "api.post.update_post.permissions_denied.app_error",
+    "translation": "編輯訊息已被停用。請洽詢系統管理員了解詳情。"
+  },
+  {
     "id": "api.post.update_post.permissions_details.app_error",
     "translation": "已刪除 id={{.PostId}}"
+  },
+  {
+    "id": "api.post.update_post.permissions_time_limit.app_error",
+    "translation": "僅在 {{.timeLimit}} 秒內可以編輯訊息。請洽詢系統管理員了解詳情。 "
   },
   {
     "id": "api.post.update_post.system_message.app_error",
@@ -1502,6 +1650,26 @@
   {
     "id": "api.preference.save_preferences.set_details.app_error",
     "translation": "session.user_id={{.SessionUserId}}, preference.user_id={{.PreferenceUserId}}"
+  },
+  {
+    "id": "api.reaction.delete_reaction.mismatched_channel_id.app_error",
+    "translation": "由於URL中的頻道 ID 與文章 ID 不相符，刪除互動失敗"
+  },
+  {
+    "id": "api.reaction.init.debug",
+    "translation": "初始化互動 API 路徑"
+  },
+  {
+    "id": "api.reaction.list_reactions.mismatched_channel_id.app_error",
+    "translation": "由於URL中的頻道 ID 與文章 ID 不相符，讀取互動失敗"
+  },
+  {
+    "id": "api.reaction.save_reaction.mismatched_channel_id.app_error",
+    "translation": "由於URL中的頻道 ID 與文章 ID 不相符，儲存互動失敗"
+  },
+  {
+    "id": "api.reaction.send_reaction_event.post.app_error",
+    "translation": "為了反應發送 Websocket 事件時，無法取得文章"
   },
   {
     "id": "api.saml.save_certificate.app_error",
@@ -1645,7 +1813,15 @@
   },
   {
     "id": "api.slackimport.slack_add_users.merge_existing_failed",
-    "translation": "Tried to merge user with existing account: {{.Email}}, {{.Username}}, but failed to add the user to this team.\r\n"
+    "translation": "嘗試與現有帳號整合使用者：{{.Email}}、{{.Username}}，但是無法將此使用者加入此團隊。\r\n"
+  },
+  {
+    "id": "api.slackimport.slack_add_users.missing_email_address",
+    "translation": "使用者{{.Username}}在Slack匯出資料中沒有電子郵件地址。{{.Email}}將會被用作預留地址。使用者在登入系統後應更新電子郵件地址。\r\n"
+  },
+  {
+    "id": "api.slackimport.slack_add_users.missing_email_address.warn",
+    "translation": "使用者{{.Username}}在Slack匯出資料中沒有電子郵件地址。{{.Email}}將會被用作預留地址。使用者在登入系統後應更新電子郵件地址。"
   },
   {
     "id": "api.slackimport.slack_add_users.unable_import",
@@ -1789,7 +1965,7 @@
   },
   {
     "id": "api.team.import_team.unavailable.app_error",
-    "translation": "無法取得 Filesize"
+    "translation": "要求格式錯誤：沒有檔案大小欄位。"
   },
   {
     "id": "api.team.init.debug",
@@ -1860,6 +2036,10 @@
     "translation": "您沒有適當的權限"
   },
   {
+    "id": "api.templates.channel_name.group",
+    "translation": "群組訊息"
+  },
+  {
     "id": "api.templates.email_change_body.info",
     "translation": "您在 {{.TeamDisplayName}} 上的電子郵件地址已經變更為 {{.NewEmail}}。<br>如果這不是您所變更的，請聯繫系統管理員。"
   },
@@ -1869,7 +2049,7 @@
   },
   {
     "id": "api.templates.email_change_subject",
-    "translation": "您在 {{.TeamDisplayName}} 上的電子郵件地址已經變更"
+    "translation": "[{{ .SiteName }}] 電子郵件地址已變更"
   },
   {
     "id": "api.templates.email_change_verify_body.button",
@@ -1885,7 +2065,7 @@
   },
   {
     "id": "api.templates.email_change_verify_subject",
-    "translation": "驗證在 {{.TeamDisplayName}} 上的新電子郵件地址"
+    "translation": "[{{ .SiteName }}] 驗證新的電子郵件地址"
   },
   {
     "id": "api.templates.email_footer",
@@ -1941,7 +2121,27 @@
   },
   {
     "id": "api.templates.invite_subject",
-    "translation": "{{ .SenderName }} 已經邀請您加入 {{.SiteName}} 上的 {{ .TeamDisplayName }} 團隊"
+    "translation": "[{{ .SiteName }}] {{ .SenderName }} 邀請您加入團隊 {{ .TeamDisplayName }}"
+  },
+  {
+    "id": "api.templates.mfa_activated_body.info",
+    "translation": "您的{{ .SiteURL }}帳號已增加多重要素驗證。<br>如果此項變更不是由您改動的，請聯絡系統管理員。"
+  },
+  {
+    "id": "api.templates.mfa_activated_body.title",
+    "translation": "已新增多重要素驗證"
+  },
+  {
+    "id": "api.templates.mfa_change_subject",
+    "translation": "[{{ .SiteName }}] 多重要素驗證已更新"
+  },
+  {
+    "id": "api.templates.mfa_deactivated_body.info",
+    "translation": "您的{{ .SiteURL }}帳號已移除多重要素驗證。<br>如果此項變更不是由您改動的，請聯絡系統管理員。"
+  },
+  {
+    "id": "api.templates.mfa_deactivated_body.title",
+    "translation": "已移除多重要素驗證"
   },
   {
     "id": "api.templates.password_change_body.info",
@@ -1953,7 +2153,7 @@
   },
   {
     "id": "api.templates.password_change_subject",
-    "translation": "您在 {{ .SiteName }} 上的 {{.TeamDisplayName}} 密碼已經更新"
+    "translation": "[{{ .SiteName }}]  密碼已更新"
   },
   {
     "id": "api.templates.post_body.button",
@@ -1969,7 +2169,11 @@
   },
   {
     "id": "api.templates.post_subject_in_direct_message",
-    "translation": "{{.SubjectText}}，來自於{{.TeamDisplayName}}團隊的{{.SenderDisplayName}}，發於 {{.Year}} {{.Month}} {{.Day}}"
+    "translation": "{{.SubjectText}}，來自{{.SenderDisplayName}}，發於 {{.Year}} {{.Month}} {{.Day}}"
+  },
+  {
+    "id": "api.templates.post_subject_in_group_message",
+    "translation": "來自 {{.SenderDisplayName}} 的群組訊息，發於 {{.Year}} {{.Month}} {{.Day}}"
   },
   {
     "id": "api.templates.reset_body.button",
@@ -1985,7 +2189,11 @@
   },
   {
     "id": "api.templates.reset_subject",
-    "translation": "重新設定密碼"
+    "translation": "[{{ .SiteName }}] 重置密碼"
+  },
+  {
+    "id": "api.templates.signin_change_email.body.info",
+    "translation": "您已經將 {{ .SiteName }} 上的登入方式變更為 {{.Method}}。<br>如果這項變更不是您做的，請聯繫系統管理員。"
   },
   {
     "id": "api.templates.signin_change_email.body.method_email",
@@ -1994,6 +2202,10 @@
   {
     "id": "api.templates.signin_change_email.body.title",
     "translation": "已變更登入方式"
+  },
+  {
+    "id": "api.templates.signin_change_email.subject",
+    "translation": "[{{ .SiteName }}] 在{{ .SiteName}}的登入方式已更新"
   },
   {
     "id": "api.templates.signup_team_body.button",
@@ -2010,14 +2222,6 @@
   {
     "id": "api.templates.signup_team_subject",
     "translation": "{{ .SiteName }} 團隊設定"
-  },
-  {
-    "id": "api.templates.singin_change_email.body.info",
-    "translation": "您已經將 {{ .SiteName }} 上的登入方式變更為 {{.Method}}。<br>如果這項變更不是您做的，請聯繫系統管理員。"
-  },
-  {
-    "id": "api.templates.singin_change_email.subject",
-    "translation": "您已經變更了 {{ .SiteName }} 上 {{.TeamDisplayName}} 的登入方式"
   },
   {
     "id": "api.templates.upgrade_30_body.info",
@@ -2037,7 +2241,7 @@
   },
   {
     "id": "api.templates.username_change_subject",
-    "translation": "使用者名稱已變更為{{.TeamDisplayName}}"
+    "translation": "[{{ .SiteName }}] 使用者名稱已變更"
   },
   {
     "id": "api.templates.verify_body.button",
@@ -2081,7 +2285,7 @@
   },
   {
     "id": "api.templates.welcome_subject",
-    "translation": "已加入{{ .ServerURL }}"
+    "translation": "[{{ .SiteName }}] 已加入 {{ .ServerURL }}"
   },
   {
     "id": "api.user.activate_mfa.email_and_ldap_only.app_error",
@@ -2089,7 +2293,7 @@
   },
   {
     "id": "api.user.add_direct_channels_and_forget.failed.error",
-    "translation": "為使用者新增直接頻道偏好設定失敗 user_id=%s, team_id=%s, err=%v"
+    "translation": "為使用者增加直接訊息頻道設定時失敗 user_id={{.UserId}}, team_id={{.TeamId}}, err={{.Error}}"
   },
   {
     "id": "api.user.authorize_oauth_user.bad_response.app_error",
@@ -2184,6 +2388,10 @@
     "translation": "您提供的電子郵件地址不屬於一個可接受的網域。請聯繫系統管理員或使用另一個不同的電子郵件地址註冊。"
   },
   {
+    "id": "api.user.create_user.disabled.app_error",
+    "translation": "建立使用者已被停用"
+  },
+  {
     "id": "api.user.create_user.joining.error",
     "translation": "加入預設頻道時遇到錯誤 user_id=%s, team_id=%s, err=%v"
   },
@@ -2261,7 +2469,7 @@
   },
   {
     "id": "api.user.login.not_provided.app_error",
-    "translation": "必須提供使用者 ID 或團隊名稱以及使用者電子郵件地址"
+    "translation": "必須提供使用者 ID 或團隊名稱與使用者電子郵件"
   },
   {
     "id": "api.user.login.not_verified.app_error",
@@ -2341,19 +2549,19 @@
   },
   {
     "id": "api.user.send_email_change_email_and_forget.error",
-    "translation": "更改通知電子郵件傳送失敗 err=%v"
+    "translation": "更改通知電子郵件傳送失敗"
   },
   {
     "id": "api.user.send_email_change_username_and_forget.error",
-    "translation": "使用者名稱變更通知電子郵件以傳送失敗 err=%v"
+    "translation": "使用者名稱變更通知電子郵件以傳送失敗"
   },
   {
     "id": "api.user.send_email_change_verify_email_and_forget.error",
-    "translation": "更改驗證電子郵件傳送失敗 err=%v"
+    "translation": "更改驗證電子郵件傳送失敗"
   },
   {
     "id": "api.user.send_password_change_email_and_forget.error",
-    "translation": "更新密碼電子郵件傳送失敗 err=%v"
+    "translation": "更新密碼電子郵件傳送失敗"
   },
   {
     "id": "api.user.send_password_reset.find.app_error",
@@ -2369,15 +2577,15 @@
   },
   {
     "id": "api.user.send_sign_in_change_email_and_forget.error",
-    "translation": "更新密碼電子郵件傳送失敗 err=%v"
+    "translation": "更新密碼電子郵件傳送失敗"
   },
   {
     "id": "api.user.send_verify_email_and_forget.failed.error",
-    "translation": "認證電子郵件傳送失敗 err=%v"
+    "translation": "認證電子郵件傳送失敗"
   },
   {
     "id": "api.user.send_welcome_email_and_forget.failed.error",
-    "translation": "歡迎電子郵件傳送失敗 err=%v"
+    "translation": "歡迎電子郵件傳送失敗"
   },
   {
     "id": "api.user.update_active.no_deactivate_ldap.app_error",
@@ -2390,6 +2598,10 @@
   {
     "id": "api.user.update_mfa.not_available.app_error",
     "translation": "本機不支援或尚未設定多重要素驗證"
+  },
+  {
+    "id": "api.user.update_oauth_user_attrs.get_user.app_error",
+    "translation": "無法從 {{.Service}} 使用者物件取得使用者"
   },
   {
     "id": "api.user.update_password.context.app_error",
@@ -2512,10 +2724,6 @@
     "translation": "正在停止團隊中心 teamId=%v"
   },
   {
-    "id": "api.webhook.create_incoming.disabled.app_errror",
-    "translation": "傳入的 Webhook 已被系統管理員停用。"
-  },
-  {
     "id": "api.webhook.create_outgoing.disabled.app_error",
     "translation": "傳出的 Webhook 已被系統管理員停用。"
   },
@@ -2536,12 +2744,12 @@
     "translation": "必須設定觸發詞或者頻道 ID"
   },
   {
-    "id": "api.webhook.delete_incoming.disabled.app_errror",
-    "translation": "傳入的 Webhook 已被系統管理員停用"
+    "id": "api.webhook.delete_incoming.disabled.app_error",
+    "translation": "傳入的 Webhook 已被系統管理員停用。"
   },
   {
-    "id": "api.webhook.delete_incoming.permissions.app_errror",
-    "translation": "沒有適當的權限刪除傳入的 Webhook"
+    "id": "api.webhook.delete_incoming.permissions.app_error",
+    "translation": "沒有權限刪除傳入的 Webhook"
   },
   {
     "id": "api.webhook.delete_outgoing.disabled.app_error",
@@ -2550,14 +2758,6 @@
   {
     "id": "api.webhook.delete_outgoing.permissions.app_error",
     "translation": "沒有適當的權限刪除傳出的 Webhook"
-  },
-  {
-    "id": "api.webhook.get_incoming.disabled.app_error",
-    "translation": "傳入的 Webhook 已被系統管理員停用"
-  },
-  {
-    "id": "api.webhook.get_outgoing.disabled.app_error",
-    "translation": "傳出的 Webhook 已被系統管理員停用"
   },
   {
     "id": "api.webhook.incoming.debug",
@@ -2572,12 +2772,40 @@
     "translation": "正在初始化 Webhook API 路徑"
   },
   {
-    "id": "api.webhook.regen_outgoing_token.disabled.app_error",
-    "translation": "傳出的 Webhook 已被系統管理員停用"
-  },
-  {
     "id": "api.webhook.regen_outgoing_token.permissions.app_error",
     "translation": "沒有適當的權限重新產生傳出的 Webhook Token"
+  },
+  {
+    "id": "api.webhook.team_mismatch.app_error",
+    "translation": "無法更新不同團隊的 Webhook"
+  },
+  {
+    "id": "api.webhook.update_incoming.disabled.app_error",
+    "translation": "傳入的 Webhook 已被系統管理員停用。"
+  },
+  {
+    "id": "api.webhook.update_incoming.permissions.app_error",
+    "translation": "沒有適當的權限更新傳入的 Webhook"
+  },
+  {
+    "id": "api.webhook.update_outgoing.disabled.app_error",
+    "translation": "傳出的 Webhook 已被系統管理員停用。"
+  },
+  {
+    "id": "api.webhook.update_outgoing.intersect.app_error",
+    "translation": "同一頻道的傳出的 Webhook 不可以使用相同的觸發關鍵字/回呼網址。"
+  },
+  {
+    "id": "api.webhook.update_outgoing.not_open.app_error",
+    "translation": "只有公開頻道可以更新傳出的 Webhook。"
+  },
+  {
+    "id": "api.webhook.update_outgoing.permissions.app_error",
+    "translation": "沒有適當的權限更新傳出的 Webhook。"
+  },
+  {
+    "id": "api.webhook.update_outgoing.triggers.app_error",
+    "translation": "必須設定觸發詞或者頻道 ID"
   },
   {
     "id": "api.webrtc.disabled.app_error",
@@ -2592,8 +2820,288 @@
     "translation": "嘗試註冊 WebRTC Token時發生錯誤"
   },
   {
+    "id": "api.websocket.invalid_session.error",
+    "translation": "無效的工作階段 err=%v"
+  },
+  {
     "id": "api.websocket_handler.invalid_param.app_error",
     "translation": "無效的參數 {{.Name}}"
+  },
+  {
+    "id": "app.channel.create_channel.no_team_id.app_error",
+    "translation": "建立頻道時必須指定團隊 ID"
+  },
+  {
+    "id": "app.channel.post_update_channel_purpose_message.post.error",
+    "translation": "發送頻道用途訊息失敗"
+  },
+  {
+    "id": "app.channel.post_update_channel_purpose_message.removed",
+    "translation": "%s 已移除了頻道用途 (原為: %s)"
+  },
+  {
+    "id": "app.channel.post_update_channel_purpose_message.retrieve_user.error",
+    "translation": "嘗試儲存更新的頻道用途訊息 %v 時取得使用者資訊失敗"
+  },
+  {
+    "id": "app.channel.post_update_channel_purpose_message.updated_from",
+    "translation": "%s 將原頻道用途由 %s 改為 %s"
+  },
+  {
+    "id": "app.channel.post_update_channel_purpose_message.updated_to",
+    "translation": "%s 已更新頻道用途為：%s"
+  },
+  {
+    "id": "app.import.bulk_import.file_scan.error",
+    "translation": "讀取匯入資料檔失敗。"
+  },
+  {
+    "id": "app.import.bulk_import.json_decode.error",
+    "translation": "JSON 解碼失敗。"
+  },
+  {
+    "id": "app.import.import_channel.team_not_found.error",
+    "translation": "匯入頻道失敗。不存在名字為 \"{{.TeamName}}\" 的團隊。"
+  },
+  {
+    "id": "app.import.import_line.null_channel.error",
+    "translation": "匯入資料行資料型別為\"頻道\"但頻道物件為 null"
+  },
+  {
+    "id": "app.import.import_line.null_post.error",
+    "translation": "匯入資料行資料型別為\"訊息\"但訊息物件為 null"
+  },
+  {
+    "id": "app.import.import_line.null_team.error",
+    "translation": "匯入資料行資料型別為\"團隊\"但團隊物件為 null"
+  },
+  {
+    "id": "app.import.import_line.null_user.error",
+    "translation": "匯入資料行資料型別為\"使用者\"但使用者物件為 null"
+  },
+  {
+    "id": "app.import.import_line.unknown_line_type.error",
+    "translation": "匯入資料行型別為未知型別 \"{{.Type}}\"。"
+  },
+  {
+    "id": "app.import.import_post.channel_not_found.error",
+    "translation": "匯入訊息失敗。不存在名字為 \"{{.Channelame}}\" 的頻道。"
+  },
+  {
+    "id": "app.import.import_post.team_not_found.error",
+    "translation": "匯入訊息失敗。不存在名字為 \"{{.TeamName}}\" 的團隊。"
+  },
+  {
+    "id": "app.import.import_post.user_not_found.error",
+    "translation": "匯入訊息失敗。不存在名字為 \"{{.Username}}\" 的使用者。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.create_at_zero.error",
+    "translation": "如果有提供頻道建立時間，該值不能為 0。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.display_name_length.error",
+    "translation": "頻道顯示名稱長度不符要求。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.display_name_missing.error",
+    "translation": "缺少必要的頻道屬性：顯示名稱。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.header_length.error",
+    "translation": "頻道標題過長。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.name_characters.error",
+    "translation": "頻道名稱包含無效的字元。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.name_length.error",
+    "translation": "頻道名稱過長。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.name_missing.error",
+    "translation": "缺少必要的頻道屬性：名字。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.purpose_length.error",
+    "translation": "頻道用途過長。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.team_missing.error",
+    "translation": "缺少必要的頻道屬性：團隊。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.type_invalid.error",
+    "translation": "無效的頻道類型。"
+  },
+  {
+    "id": "app.import.validate_channel_import_data.type_missing.error",
+    "translation": "缺少必要的頻道屬性：類型。"
+  },
+  {
+    "id": "app.import.validate_post_import_data.channel_missing.error",
+    "translation": "缺少必要的訊息屬性：頻道。"
+  },
+  {
+    "id": "app.import.validate_post_import_data.create_at_missing.error",
+    "translation": "缺少必要的訊息屬性：建立日期。"
+  },
+  {
+    "id": "app.import.validate_post_import_data.create_at_zero.error",
+    "translation": "如果有提供，訊息建立日期不能為零。"
+  },
+  {
+    "id": "app.import.validate_post_import_data.message_length.error",
+    "translation": "訊息屬性長度超過允許的最大長度"
+  },
+  {
+    "id": "app.import.validate_post_import_data.message_missing.error",
+    "translation": "缺少必要的訊息屬性：訊息。"
+  },
+  {
+    "id": "app.import.validate_post_import_data.team_missing.error",
+    "translation": "缺少必要的訊息屬性：團隊。"
+  },
+  {
+    "id": "app.import.validate_post_import_data.user_missing.error",
+    "translation": "缺少必要的訊息屬性：使用者。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.allowed_domains_length.error",
+    "translation": "團隊允許網域過長。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.create_at_zero.error",
+    "translation": "如果有提供團隊建立時間，該值不能為 0。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.description_length.error",
+    "translation": "團隊描述過長。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.display_name_length.error",
+    "translation": "團隊顯示名稱長度不符要求。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.display_name_missing.error",
+    "translation": "缺少必要的團隊屬性：顯示名稱。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.name_characters.error",
+    "translation": "使用者名稱帶有無效字元。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.name_length.error",
+    "translation": "團隊名稱過長。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.name_missing.error",
+    "translation": "缺少必要的團隊屬性：名字。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.name_reserved.error",
+    "translation": "團隊名稱帶有保留字。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.type_invalid.error",
+    "translation": "無效的團隊類型。"
+  },
+  {
+    "id": "app.import.validate_team_import_data.type_missing.error",
+    "translation": "缺少必要的團隊屬性：類型。"
+  },
+  {
+    "id": "app.import.validate_user_channels_import_data.channel_name_missing.error",
+    "translation": "使用者頻道資料中缺少頻道名字。"
+  },
+  {
+    "id": "app.import.validate_user_channels_import_data.invalid_notify_props_desktop.error",
+    "translation": "使用者頻道成員身份的桌面 NotifyProps 無效"
+  },
+  {
+    "id": "app.import.validate_user_channels_import_data.invalid_notify_props_mark_unread.error",
+    "translation": "使用者頻道成員身份的標注未讀 NotifyProps 無效"
+  },
+  {
+    "id": "app.import.validate_user_channels_import_data.invalid_roles.error",
+    "translation": "使用者頻道資料的角色為無效資料。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.auth_data_length.error",
+    "translation": "使用者認證資料過長。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.auth_service_length.error",
+    "translation": "如果有提供使用者認證服務，該值不能為空。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.email_length.error",
+    "translation": "使用者電子郵件的長度無效。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.email_missing.error",
+    "translation": "缺少必要的使用者屬性：電子郵件。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.first_name_length.error",
+    "translation": "使用者名字過長。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.last_name_length.error",
+    "translation": "使用者姓氏過長。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.nickname_length.error",
+    "translation": "使用者暱稱過長。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.position_length.error",
+    "translation": "使用者職位過長。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.roles_invalid.error",
+    "translation": "無效的使用者角色。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.username_invalid.error",
+    "translation": "無效的使用者名稱。"
+  },
+  {
+    "id": "app.import.validate_user_import_data.username_missing.error",
+    "translation": "缺少必要的使用者屬性：名字。"
+  },
+  {
+    "id": "app.import.validate_user_teams_import_data.invalid_roles.error",
+    "translation": "使用者團隊資料的角色為無效資料。"
+  },
+  {
+    "id": "app.import.validate_user_teams_import_data.team_name_missing.error",
+    "translation": "使用者團隊資料中缺少團隊名字。"
+  },
+  {
+    "id": "authentication.permissions.create_group_channel.description",
+    "translation": "允許建立新的群組訊息頻道"
+  },
+  {
+    "id": "authentication.permissions.create_group_channel.name",
+    "translation": "建立群組訊息"
+  },
+  {
+    "id": "authentication.permissions.create_team_roles.description",
+    "translation": "允許建立團隊"
+  },
+  {
+    "id": "authentication.permissions.create_team_roles.name",
+    "translation": "建立團隊"
+  },
+  {
+    "id": "authentication.permissions.manage_team_roles.description",
+    "translation": "允許改變團隊成員的角色"
+  },
+  {
+    "id": "authentication.permissions.manage_team_roles.name",
+    "translation": "管理團隊角色"
   },
   {
     "id": "authentication.permissions.team_invite_user.description",
@@ -2981,7 +3489,7 @@
   },
   {
     "id": "mattermost.load_license.find.warn",
-    "translation": "找不到有效的授權"
+    "translation": "需要來自 https://mattermost.com 的授權金鑰以解鎖企業功能。"
   },
   {
     "id": "mattermost.security_bulletin.error",
@@ -3108,8 +3616,16 @@
     "translation": "無效的頻道 ID"
   },
   {
+    "id": "model.channel_member.is_valid.email_value.app_error",
+    "translation": "無效的電子郵件通知值"
+  },
+  {
     "id": "model.channel_member.is_valid.notify_level.app_error",
     "translation": "無效的通知等級"
+  },
+  {
+    "id": "model.channel_member.is_valid.push_level.app_error",
+    "translation": "無效的推播通知等級"
   },
   {
     "id": "model.channel_member.is_valid.role.app_error",
@@ -3142,6 +3658,18 @@
   {
     "id": "model.client.login.app_error",
     "translation": "認證 Token 不合"
+  },
+  {
+    "id": "model.client.read_file.app_error",
+    "translation": "讀取檔案時遇到錯誤"
+  },
+  {
+    "id": "model.client.set_profile_user.no_file.app_error",
+    "translation": "要求的 'image' 欄位沒有檔案"
+  },
+  {
+    "id": "model.client.set_profile_user.writer.app_error",
+    "translation": "無法寫入要求"
   },
   {
     "id": "model.command.is_valid.create_at.app_error",
@@ -3181,7 +3709,7 @@
   },
   {
     "id": "model.command.is_valid.url.app_error",
-    "translation": "無效的網址"
+    "translation": "無效的 URL"
   },
   {
     "id": "model.command.is_valid.url_http.app_error",
@@ -3444,6 +3972,10 @@
     "translation": "SQL 設定中的最高開啟連線數無效。必須為正數。"
   },
   {
+    "id": "model.config.is_valid.time_between_user_typing.app_error",
+    "translation": "使用者輸入更新間隔不應該設定為低於 1000 毫秒。"
+  },
+  {
     "id": "model.config.is_valid.webrtc_gateway_admin_secret.app_error",
     "translation": "必須設定 WebRTC 閘道管理員密碼。"
   },
@@ -3673,7 +4205,7 @@
   },
   {
     "id": "model.post.is_valid.root_parent.app_error",
-    "translation": "若上層 ID 已設定則根 ID 也必須設定否則為非法"
+    "translation": "若上層 ID 已設定則根 ID 也必須設定否則無效"
   },
   {
     "id": "model.post.is_valid.type.app_error",
@@ -3708,6 +4240,22 @@
     "translation": "值過長"
   },
   {
+    "id": "model.reaction.is_valid.create_at.app_error",
+    "translation": "\"新增時間\"必須是一個有效時間"
+  },
+  {
+    "id": "model.reaction.is_valid.emoji_name.app_error",
+    "translation": "無效的繪文字名稱"
+  },
+  {
+    "id": "model.reaction.is_valid.post_id.app_error",
+    "translation": "無效的文章 ID"
+  },
+  {
+    "id": "model.reaction.is_valid.user_id.app_error",
+    "translation": "無效的使用者 ID"
+  },
+  {
     "id": "model.team.is_valid.characters.app_error",
     "translation": "名稱必須是2個以上的小寫英數字元"
   },
@@ -3718,6 +4266,10 @@
   {
     "id": "model.team.is_valid.create_at.app_error",
     "translation": "\"新增時間\"必須是一個有效時間"
+  },
+  {
+    "id": "model.team.is_valid.description.app_error",
+    "translation": "無效的敘述"
   },
   {
     "id": "model.team.is_valid.domains.app_error",
@@ -3798,6 +4350,10 @@
   {
     "id": "model.user.is_valid.nickname.app_error",
     "translation": "無效的暱稱"
+  },
+  {
+    "id": "model.user.is_valid.position.app_error",
+    "translation": "無效的位置：不能超過35個字元。"
   },
   {
     "id": "model.user.is_valid.pwd.app_error",
@@ -4036,6 +4592,10 @@
     "translation": "儲存稽核紀錄時遇到錯誤"
   },
   {
+    "id": "store.sql_channel.analytics_deleted_type_count.app_error",
+    "translation": "無法取得已刪除的頻道類別數量"
+  },
+  {
     "id": "store.sql_channel.analytics_type_count.app_error",
     "translation": "無法取得頻道類別數量"
   },
@@ -4092,6 +4652,14 @@
     "translation": "找不到頻道"
   },
   {
+    "id": "store.sql_channel.get_deleted_by_name.existing.app_error",
+    "translation": "找不到現有的已刪除頻道"
+  },
+  {
+    "id": "store.sql_channel.get_deleted_by_name.missing.app_error",
+    "translation": "沒有該名字的已刪除頻道"
+  },
+  {
     "id": "store.sql_channel.get_extra_members.app_error",
     "translation": "無法取得頻道成員的更多資訊"
   },
@@ -4120,12 +4688,20 @@
     "translation": "無法取得頻道成員"
   },
   {
+    "id": "store.sql_channel.get_members_by_ids.app_error",
+    "translation": "無法取得頻道成員"
+  },
+  {
     "id": "store.sql_channel.get_more_channels.get.app_error",
     "translation": "無法取得這些頻道"
   },
   {
     "id": "store.sql_channel.increment_mention_count.app_error",
     "translation": "無法遞增提及計數"
+  },
+  {
+    "id": "store.sql_channel.permanent_delete.app_error",
+    "translation": "無法刪除頻道"
   },
   {
     "id": "store.sql_channel.permanent_delete_by_team.app_error",
@@ -4161,7 +4737,7 @@
   },
   {
     "id": "store.sql_channel.save_channel.exists.app_error",
-    "translation": "該網址已經被其他頻道使用"
+    "translation": "相同名字的頻道已存在於同團隊"
   },
   {
     "id": "store.sql_channel.save_channel.limit.app_error",
@@ -4476,6 +5052,10 @@
     "translation": "無法取得該頻道的上層訊息"
   },
   {
+    "id": "store.sql_post.get_posts_created_att.app_error",
+    "translation": "無法取得該頻道的訊息"
+  },
+  {
     "id": "store.sql_post.get_posts_since.app_error",
     "translation": "無法取得該頻道的訊息"
   },
@@ -4484,12 +5064,20 @@
     "translation": "無法取得該頻道的訊息"
   },
   {
+    "id": "store.sql_post.overwrite.app_error",
+    "translation": "無法覆蓋訊息"
+  },
+  {
     "id": "store.sql_post.permanent_delete.app_error",
     "translation": "無法刪除訊息"
   },
   {
     "id": "store.sql_post.permanent_delete_all_comments_by_user.app_error",
     "translation": "無法刪除使用者的註解"
+  },
+  {
+    "id": "store.sql_post.permanent_delete_by_channel.app_error",
+    "translation": "無法根據頻道刪除訊息"
   },
   {
     "id": "store.sql_post.permanent_delete_by_user.app_error",
@@ -4508,8 +5096,8 @@
     "translation": "無法更新已存在的訊息"
   },
   {
-    "id": "store.sql_post.search.app_error",
-    "translation": "尋找訊息時遇到錯誤"
+    "id": "store.sql_post.search.warn",
+    "translation": "搜尋訊息查詢錯誤：%v"
   },
   {
     "id": "store.sql_post.update.app_error",
@@ -4574,6 +5162,46 @@
   {
     "id": "store.sql_preference.update.app_error",
     "translation": "無法更新偏好設定"
+  },
+  {
+    "id": "store.sql_reaction.delete.begin.app_error",
+    "translation": "刪除互動時無法開啟交易"
+  },
+  {
+    "id": "store.sql_reaction.delete.commit.app_error",
+    "translation": "刪除互動時無法交付交易"
+  },
+  {
+    "id": "store.sql_reaction.delete.save.app_error",
+    "translation": "無法刪除互動"
+  },
+  {
+    "id": "store.sql_reaction.delete_all_with_emoj_name.delete_reactions.app_error",
+    "translation": "無法刪除指定繪文字名稱的互動"
+  },
+  {
+    "id": "store.sql_reaction.delete_all_with_emoj_name.get_reactions.app_error",
+    "translation": "無法取得指定繪文字名稱的互動"
+  },
+  {
+    "id": "store.sql_reaction.delete_all_with_emoji_name.update_post.warn",
+    "translation": "刪除互動時無法更新 Post.HasReactions：post_id=%v, error=%v"
+  },
+  {
+    "id": "store.sql_reaction.get_for_post.app_error",
+    "translation": "無法取得對於文章的互動"
+  },
+  {
+    "id": "store.sql_reaction.save.begin.app_error",
+    "translation": "儲存互動時無法開啟交易"
+  },
+  {
+    "id": "store.sql_reaction.save.commit.app_error",
+    "translation": "儲存互動時無法交付交易"
+  },
+  {
+    "id": "store.sql_reaction.save.save.app_error",
+    "translation": "無法儲存互動"
   },
   {
     "id": "store.sql_session.analytics_session_count.app_error",
@@ -4744,6 +5372,10 @@
     "translation": "查詢團隊時遇到錯誤"
   },
   {
+    "id": "store.sql_team.get_unread.app_error",
+    "translation": "無法取得團隊未讀訊息"
+  },
+  {
     "id": "store.sql_team.permanent_delete.app_error",
     "translation": "無法刪除已存在的團隊"
   },
@@ -4757,7 +5389,7 @@
   },
   {
     "id": "store.sql_team.save.domain_exists.app_error",
-    "translation": "該網域的團隊已存在"
+    "translation": "已經存在相同名稱的團隊"
   },
   {
     "id": "store.sql_team.save.existing.app_error",
@@ -4790,6 +5422,14 @@
   {
     "id": "store.sql_team.update_display_name.app_error",
     "translation": "無法更新團隊名稱"
+  },
+  {
+    "id": "store.sql_user.analytics_get_inactive_users_count.app_error",
+    "translation": "無法計算非活躍使用者的數量"
+  },
+  {
+    "id": "store.sql_user.analytics_get_system_admin_count.app_error",
+    "translation": "無法計算系統管理員的數量"
   },
   {
     "id": "store.sql_user.analytics_unique_user_count.app_error",
@@ -4853,7 +5493,7 @@
   },
   {
     "id": "store.sql_user.missing_account.const",
-    "translation": "在此團隊中找不到符合您的電子郵件之帳號，此團隊需要從團隊擁有者取得邀請才可加入。"
+    "translation": "找不到使用者"
   },
   {
     "id": "store.sql_user.permanent_delete.app_error",
@@ -5032,6 +5672,10 @@
     "translation": "無法複蓋一個已存在的傳出的 Webhook"
   },
   {
+    "id": "store.sql_webhooks.update_incoming.app_error",
+    "translation": "無法更新傳入的 Webhook"
+  },
+  {
     "id": "store.sql_webhooks.update_outgoing.app_error",
     "translation": "無法更新 Webhook"
   },
@@ -5058,6 +5702,18 @@
   {
     "id": "utils.config.save_config.saving.app_error",
     "translation": "儲存檔案到 {{.Filename}} 時發生錯誤"
+  },
+  {
+    "id": "utils.config.supported_client_locale.app_error",
+    "translation": "無法讀入 Mattermost 設定檔： DefaultClientLocale 必須為支援的地域"
+  },
+  {
+    "id": "utils.config.supported_server_locale.app_error",
+    "translation": "無法讀入 Mattermost 設定檔： DefaultServerLocale 必須為支援的地域"
+  },
+  {
+    "id": "utils.config.validate_locale.app_error",
+    "translation": "無法讀入 Mattermost 設定檔： AvaiableLocales 必須為包含 DefaultClientLocale"
   },
   {
     "id": "utils.diagnostic.analytics_not_found.app_error",
@@ -5196,6 +5852,10 @@
     "translation": "回上一步"
   },
   {
+    "id": "web.incoming_webhook.attachment.app_error",
+    "translation": "附件最大大小為 {{.Max}} 字元，已接收大小為 {{.Actual}}"
+  },
+  {
     "id": "web.incoming_webhook.channel.app_error",
     "translation": "找不到頻道"
   },
@@ -5218,6 +5878,10 @@
   {
     "id": "web.incoming_webhook.text.app_error",
     "translation": "沒有指定文字"
+  },
+  {
+    "id": "web.incoming_webhook.text.length.app_error",
+    "translation": "文字最長可為 {{.Max}} 字元，已接收大小為 {{.Actual}}"
   },
   {
     "id": "web.incoming_webhook.user.app_error",

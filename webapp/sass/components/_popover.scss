@@ -17,6 +17,7 @@
     }
 
     .popover-title {
+        @include border-radius(0);
         background: alpha-color($black, .05);
         max-width: 100%;
         overflow: hidden;
@@ -30,6 +31,22 @@
         p {
             &:last-child {
                 margin-bottom: 5px;
+            }
+        }
+    }
+
+    .popover__row {
+        border-top: 1px solid transparent;
+        margin: 9px -15px 0;
+        padding: 9px 15px 0;
+
+        > a {
+            > i {
+                margin-right: 5px;
+            }
+
+            > span {
+                text-transform: capitalize;
             }
         }
     }

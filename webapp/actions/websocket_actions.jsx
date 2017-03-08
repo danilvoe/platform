@@ -6,6 +6,7 @@ import $ from 'jquery';
 import UserStore from 'stores/user_store.jsx';
 import TeamStore from 'stores/team_store.jsx';
 import PostStore from 'stores/post_store.jsx';
+import PreferenceStore from 'stores/preference_store.jsx';
 import ChannelStore from 'stores/channel_store.jsx';
 import BrowserStore from 'stores/browser_store.jsx';
 import ErrorStore from 'stores/error_store.jsx';
@@ -17,14 +18,15 @@ import WebSocketClient from 'client/web_websocket_client.jsx';
 import * as WebrtcActions from './webrtc_actions.jsx';
 import * as Utils from 'utils/utils.jsx';
 import * as AsyncClient from 'utils/async_client.jsx';
+import {getSiteURL} from 'utils/url.jsx';
 
 import * as GlobalActions from 'actions/global_actions.jsx';
 import {handleNewPost, loadPosts, loadProfilesForPosts} from 'actions/post_actions.jsx';
-import {loadProfilesAndTeamMembersForDMSidebar} from 'actions/user_actions.jsx';
+import {loadProfilesForSidebar} from 'actions/user_actions.jsx';
 import {loadChannelsForCurrentUser} from 'actions/channel_actions.jsx';
 import * as StatusActions from 'actions/status_actions.jsx';
 
-import {ActionTypes, Constants, SocketEvents, UserStatuses} from 'utils/constants.jsx';
+import {ActionTypes, Constants, Preferences, SocketEvents, UserStatuses} from 'utils/constants.jsx';
 
 import {browserHistory} from 'react-router/es6';
 
@@ -36,7 +38,7 @@ export function initialize() {
         return;
     }
 
-    let connUrl = Utils.getSiteURL();
+    let connUrl = getSiteURL();
 
     // replace the protocol with a websocket one
     if (connUrl.startsWith('https:')) {
@@ -59,7 +61,6 @@ export function initialize() {
 
     WebSocketClient.setEventCallback(handleEvent);
     WebSocketClient.setFirstConnectCallback(handleFirstConnect);
-    WebSocketClient.setReconnectCallback(handleReconnect);
     WebSocketClient.setCloseCallback(handleClose);
     WebSocketClient.initialize(connUrl);
 }
@@ -68,24 +69,27 @@ export function close() {
     WebSocketClient.close();
 }
 
-export function reconnect() {
+function reconnectWebSocket() {
     close();
     initialize();
-    handleReconnect();
 }
 
-function handleFirstConnect() {
+export function reconnect(includeWebSocket = true) {
+    if (includeWebSocket) {
+        reconnectWebSocket();
+    }
+
+    if (Client.teamId) {
+        loadChannelsForCurrentUser();
+        loadPosts(ChannelStore.getCurrentId());
+        StatusActions.loadStatusesForChannelAndSidebar();
+    }
+
     ErrorStore.clearLastError();
     ErrorStore.emitChange();
 }
 
-function handleReconnect() {
-    if (Client.teamId) {
-        loadChannelsForCurrentUser();
-        loadPosts(ChannelStore.getCurrentId());
-    }
-
-    StatusActions.loadStatusesForChannelAndSidebar();
+function handleFirstConnect() {
     ErrorStore.clearLastError();
     ErrorStore.emitChange();
 }
@@ -114,12 +118,12 @@ function handleEvent(msg) {
         handlePostDeleteEvent(msg);
         break;
 
-    case SocketEvents.NEW_USER:
-        handleNewUserEvent(msg);
-        break;
-
     case SocketEvents.LEAVE_TEAM:
         handleLeaveTeamEvent(msg);
+        break;
+
+    case SocketEvents.UPDATE_TEAM:
+        handleUpdateTeamEvent(msg);
         break;
 
     case SocketEvents.USER_ADDED:
@@ -134,8 +138,8 @@ function handleEvent(msg) {
         handleUserUpdatedEvent(msg);
         break;
 
-    case SocketEvents.CHANNEL_VIEWED:
-        handleChannelViewedEvent(msg);
+    case SocketEvents.CHANNEL_CREATED:
+        handleChannelCreatedEvent(msg);
         break;
 
     case SocketEvents.CHANNEL_DELETED:
@@ -200,7 +204,7 @@ function handlePostEditEvent(msg) {
     // Update channel state
     if (ChannelStore.getCurrentId() === msg.broadcast.channel_id) {
         if (window.isActive) {
-            AsyncClient.updateLastViewedAt(null, false);
+            AsyncClient.viewChannel();
         }
     }
 }
@@ -208,45 +212,34 @@ function handlePostEditEvent(msg) {
 function handlePostDeleteEvent(msg) {
     const post = JSON.parse(msg.data.post);
     GlobalActions.emitPostDeletedEvent(post);
-
-    const selectedPostId = PostStore.getSelectedPostId();
-    if (selectedPostId === post.id) {
-        GlobalActions.emitCloseRightHandSide();
-    }
-}
-
-function handleNewUserEvent(msg) {
-    if (TeamStore.getCurrentId() === '') {
-        // Any new users will be loaded when we switch into a context with a team
-        return;
-    }
-
-    if (msg.data.user_id === UserStore.getCurrentId()) {
-        // We should already have ourselves
-        return;
-    }
-
-    AsyncClient.getUser(msg.data.user_id);
-    AsyncClient.getChannelStats();
-    loadProfilesAndTeamMembersForDMSidebar();
 }
 
 function handleLeaveTeamEvent(msg) {
     if (UserStore.getCurrentId() === msg.data.user_id) {
         TeamStore.removeMyTeamMember(msg.data.team_id);
 
-        // if they are on the team being removed redirect them to the root
+        // if they are on the team being removed redirect them to default team
         if (TeamStore.getCurrentId() === msg.data.team_id) {
             TeamStore.setCurrentId('');
             Client.setTeamId('');
-            browserHistory.push('/');
+            BrowserStore.removeGlobalItem('team');
+            BrowserStore.removeGlobalItem(msg.data.team_id);
+            GlobalActions.redirectUserToDefaultTeam();
         }
+    } else {
+        UserStore.removeProfileFromTeam(msg.data.team_id, msg.data.user_id);
+        TeamStore.removeMemberInTeam(msg.data.team_id, msg.data.user_id);
     }
+}
+
+function handleUpdateTeamEvent(msg) {
+    TeamStore.updateTeam(msg.data.team);
 }
 
 function handleDirectAddedEvent(msg) {
     AsyncClient.getChannel(msg.broadcast.channel_id);
-    loadProfilesAndTeamMembersForDMSidebar();
+    PreferenceStore.setPreference(Preferences.CATEGORY_DIRECT_CHANNEL_SHOW, msg.data.teammate_id, 'true');
+    loadProfilesForSidebar();
 }
 
 function handleUserAddedEvent(msg) {
@@ -286,12 +279,12 @@ function handleUserUpdatedEvent(msg) {
     }
 }
 
-function handleChannelViewedEvent(msg) {
-    // Useful for when multiple devices have the app open to different channels
-    if (TeamStore.getCurrentId() === msg.broadcast.team_id &&
-            ChannelStore.getCurrentId() !== msg.data.channel_id &&
-            UserStore.getCurrentId() === msg.broadcast.user_id) {
-        AsyncClient.getChannel(msg.data.channel_id);
+function handleChannelCreatedEvent(msg) {
+    const channelId = msg.data.channel_id;
+    const teamId = msg.data.team_id;
+
+    if (TeamStore.getCurrentId() === teamId && !ChannelStore.getChannelById(channelId)) {
+        AsyncClient.getChannel(channelId);
     }
 }
 

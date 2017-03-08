@@ -5,10 +5,11 @@ import AppDispatcher from 'dispatcher/app_dispatcher.jsx';
 
 import ChannelStore from 'stores/channel_store.jsx';
 import PostStore from 'stores/post_store.jsx';
-import TeamStore from 'stores/team_store.jsx';
 import UserStore from 'stores/user_store.jsx';
 
 import {loadStatusesForChannel} from 'actions/status_actions.jsx';
+import {loadNewDMIfNeeded, loadNewGMIfNeeded} from 'actions/user_actions.jsx';
+import {trackEvent} from 'actions/diagnostics_actions.jsx';
 
 import Client from 'client/web_client.jsx';
 import * as AsyncClient from 'utils/async_client.jsx';
@@ -18,21 +19,17 @@ const ActionTypes = Constants.ActionTypes;
 const Preferences = Constants.Preferences;
 
 export function handleNewPost(post, msg) {
-    if (ChannelStore.getCurrentId() === post.channel_id) {
-        if (window.isActive) {
-            AsyncClient.updateLastViewedAt(null, false);
-        } else {
-            AsyncClient.getChannel(post.channel_id);
-        }
-    } else if (msg && (TeamStore.getCurrentId() === msg.data.team_id || msg.data.channel_type === Constants.DM_CHANNEL)) {
-        if (Client.teamId) {
-            AsyncClient.getChannel(post.channel_id);
-        }
-    }
-
-    var websocketMessageProps = null;
+    let websocketMessageProps = null;
     if (msg) {
         websocketMessageProps = msg.data;
+    }
+
+    if (msg && msg.data) {
+        if (msg.data.channel_type === Constants.DM_CHANNEL) {
+            loadNewDMIfNeeded(post.user_id);
+        } else if (msg.data.channel_type === Constants.GM_CHANNEL) {
+            loadNewGMIfNeeded(post.channel_id, post.user_id);
+        }
     }
 
     if (post.root_id && PostStore.getPost(post.channel_id, post.root_id) == null) {
@@ -72,10 +69,12 @@ export function handleNewPost(post, msg) {
 }
 
 export function flagPost(postId) {
+    trackEvent('api', 'api_posts_flagged');
     AsyncClient.savePreference(Preferences.CATEGORY_FLAGGED_POST, postId, 'true');
 }
 
 export function unflagPost(postId, success) {
+    trackEvent('api', 'api_posts_unflagged');
     const pref = {
         user_id: UserStore.getCurrentId(),
         category: Preferences.CATEGORY_FLAGGED_POST,
@@ -108,12 +107,16 @@ export function getFlaggedPosts() {
     );
 }
 
-export function loadPosts(channelId = ChannelStore.getCurrentId()) {
+export function loadPosts(channelId = ChannelStore.getCurrentId(), isPost = false) {
     const postList = PostStore.getAllPosts(channelId);
     const latestPostTime = PostStore.getLatestPostFromPageTime(channelId);
 
-    if (!postList || Object.keys(postList).length === 0 || postList.order.length < Constants.POST_CHUNK_SIZE || latestPostTime === 0) {
-        loadPostsPage(channelId, Constants.POST_CHUNK_SIZE);
+    if (
+        !postList || Object.keys(postList).length === 0 ||
+        (!isPost && postList.order.length < Constants.POST_CHUNK_SIZE) ||
+        latestPostTime === 0
+    ) {
+        loadPostsPage(channelId, Constants.POST_CHUNK_SIZE, isPost);
         return;
     }
 
@@ -126,7 +129,8 @@ export function loadPosts(channelId = ChannelStore.getCurrentId()) {
                 id: channelId,
                 before: true,
                 numRequested: 0,
-                post_list: data
+                post_list: data,
+                isPost
             });
 
             loadProfilesForPosts(data.posts);
@@ -138,7 +142,7 @@ export function loadPosts(channelId = ChannelStore.getCurrentId()) {
     );
 }
 
-export function loadPostsPage(channelId = ChannelStore.getCurrentId(), max = Constants.POST_CHUNK_SIZE) {
+export function loadPostsPage(channelId = ChannelStore.getCurrentId(), max = Constants.POST_CHUNK_SIZE, isPost = false) {
     const postList = PostStore.getAllPosts(channelId);
 
     // if we already have more than POST_CHUNK_SIZE posts,
@@ -160,7 +164,9 @@ export function loadPostsPage(channelId = ChannelStore.getCurrentId(), max = Con
                 before: true,
                 numRequested: numPosts,
                 checkLatest: true,
-                post_list: data
+                checkEarliest: true,
+                post_list: data,
+                isPost
             });
 
             loadProfilesForPosts(data.posts);
@@ -188,6 +194,7 @@ export function loadPostsBefore(postId, offset, numPost, isPost) {
                 type: ActionTypes.RECEIVED_POSTS,
                 id: channelId,
                 before: true,
+                checkEarliest: true,
                 numRequested: numPost,
                 post_list: data,
                 isPost
@@ -273,6 +280,55 @@ export function removeReaction(channelId, postId, emojiName) {
     AsyncClient.deleteReaction(channelId, reaction);
 }
 
+const postQueue = [];
+
+export function queuePost(post, doLoadPost, success, error) {
+    postQueue.push(
+        createPost.bind(
+            this,
+            post,
+            doLoadPost,
+            (data) => {
+                if (success) {
+                    success(data);
+                }
+
+                postSendComplete();
+            },
+            (err) => {
+                if (error) {
+                    error(err);
+                }
+
+                postSendComplete();
+            }
+        )
+    );
+
+    sendFirstPostInQueue();
+}
+
+// Remove the completed post from the queue and send the next one
+function postSendComplete() {
+    postQueue.shift();
+    sendNextPostInQueue();
+}
+
+// Start sending posts if a new queue has started
+function sendFirstPostInQueue() {
+    if (postQueue.length === 1) {
+        sendNextPostInQueue();
+    }
+}
+
+// Send the next post in the queue if there is one
+function sendNextPostInQueue() {
+    const nextPostAction = postQueue[0];
+    if (nextPostAction) {
+        nextPostAction();
+    }
+}
+
 export function createPost(post, doLoadPost, success, error) {
     Client.createPost(post,
         (data) => {
@@ -299,6 +355,80 @@ export function createPost(post, doLoadPost, success, error) {
                 post.state = Constants.POST_FAILED;
                 PostStore.updatePendingPost(post);
             }
+
+            if (error) {
+                error(err);
+            }
+        }
+    );
+}
+
+export function updatePost(post, success, isPost) {
+    Client.updatePost(
+        post,
+        () => {
+            loadPosts(post.channel_id, isPost);
+
+            if (success) {
+                success();
+            }
+        },
+        (err) => {
+            AsyncClient.dispatchError(err, 'updatePost');
+        });
+}
+
+export function removePostFromStore(post) {
+    PostStore.removePost(post);
+    PostStore.emitChange();
+}
+
+export function deletePost(channelId, post, success, error) {
+    Client.deletePost(
+        channelId,
+        post.id,
+        () => {
+            removePostFromStore(post);
+            if (post.id === PostStore.getSelectedPostId()) {
+                AppDispatcher.handleServerAction({
+                    type: ActionTypes.RECEIVED_POST_SELECTED,
+                    postId: null
+                });
+            }
+
+            if (success) {
+                success();
+            }
+        },
+        (err) => {
+            AsyncClient.dispatchError(err, 'deletePost');
+
+            if (error) {
+                error(err);
+            }
+        }
+    );
+}
+
+export function performSearch(terms, isMentionSearch, success, error) {
+    Client.search(
+        terms,
+        isMentionSearch,
+        (data) => {
+            AppDispatcher.handleServerAction({
+                type: ActionTypes.RECEIVED_SEARCH,
+                results: data,
+                is_mention_search: isMentionSearch
+            });
+
+            loadProfilesForPosts(data.posts);
+
+            if (success) {
+                success(data);
+            }
+        },
+        (err) => {
+            AsyncClient.dispatchError(err, 'search');
 
             if (error) {
                 error(err);

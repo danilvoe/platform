@@ -12,6 +12,8 @@ import TeamStore from 'stores/team_store.jsx';
 import {searchUsers} from 'actions/user_actions.jsx';
 
 import * as AsyncClient from 'utils/async_client.jsx';
+import * as UserAgent from 'utils/user_agent.jsx';
+import Constants from 'utils/constants.jsx';
 
 import React from 'react';
 import {Modal} from 'react-bootstrap';
@@ -31,6 +33,7 @@ export default class ChannelInviteModal extends React.Component {
         this.search = this.search.bind(this);
 
         this.term = '';
+        this.searchTimeoutId = 0;
 
         const channelStats = ChannelStore.getStats(props.channel.id);
         const teamStats = TeamStore.getCurrentStats();
@@ -112,14 +115,27 @@ export default class ChannelInviteModal extends React.Component {
             return;
         }
 
-        searchUsers(
-            term,
-            TeamStore.getCurrentId(),
-            {not_in_channel_id: this.props.channel.id},
-            (users) => {
-                this.setState({search: true, users});
-            }
+        clearTimeout(this.searchTimeoutId);
+
+        const searchTimeoutId = setTimeout(
+            () => {
+                searchUsers(
+                    term,
+                    TeamStore.getCurrentId(),
+                    {not_in_channel_id: this.props.channel.id},
+                    (users) => {
+                        if (searchTimeoutId !== this.searchTimeoutId) {
+                            return;
+                        }
+
+                        this.setState({search: true, users});
+                    }
+                );
+            },
+            Constants.SEARCH_TIMEOUT_MILLISECONDS
         );
+
+        this.searchTimeoutId = searchTimeoutId;
     }
 
     render() {
@@ -140,6 +156,7 @@ export default class ChannelInviteModal extends React.Component {
                     nextPage={this.nextPage}
                     search={this.search}
                     actions={[ChannelInviteButton]}
+                    focusOnMount={!UserAgent.isMobile()}
                     actionProps={{
                         channel: this.props.channel,
                         onInviteError: this.handleInviteError

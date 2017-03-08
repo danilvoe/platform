@@ -3,6 +3,7 @@
 
 import $ from 'jquery';
 import ReactDOM from 'react-dom';
+import * as UserAgent from 'utils/user_agent.jsx';
 import * as Utils from 'utils/utils.jsx';
 import * as GlobalActions from 'actions/global_actions.jsx';
 
@@ -45,7 +46,6 @@ export default class SidebarHeaderDropdown extends React.Component {
         this.showGetTeamInviteLinkModal = this.showGetTeamInviteLinkModal.bind(this);
         this.showTeamMembersModal = this.showTeamMembersModal.bind(this);
         this.hideTeamMembersModal = this.hideTeamMembersModal.bind(this);
-        this.handleSwitchTeams = this.handleSwitchTeams.bind(this);
 
         this.onTeamChange = this.onTeamChange.bind(this);
         this.openAccountSettings = this.openAccountSettings.bind(this);
@@ -55,8 +55,8 @@ export default class SidebarHeaderDropdown extends React.Component {
         this.handleClick = this.handleClick.bind(this);
 
         this.state = {
-            teams: TeamStore.getAll(),
             teamMembers: TeamStore.getMyTeamMembers(),
+            teamListings: TeamStore.getTeamListings(),
             showAboutModal: false,
             showDropdown: false,
             showTeamMembersModal: false,
@@ -121,7 +121,6 @@ export default class SidebarHeaderDropdown extends React.Component {
         e.preventDefault();
 
         this.setState({
-            showDropdown: false,
             showTeamMembersModal: true
         });
     }
@@ -132,11 +131,6 @@ export default class SidebarHeaderDropdown extends React.Component {
         });
     }
 
-    handleSwitchTeams() {
-        // The actual switching of teams is handled by the react-router Link
-        this.setState({showDropdown: false});
-    }
-
     componentDidMount() {
         TeamStore.addChangeListener(this.onTeamChange);
         document.addEventListener('keydown', this.openAccountSettings);
@@ -144,8 +138,8 @@ export default class SidebarHeaderDropdown extends React.Component {
 
     onTeamChange() {
         this.setState({
-            teams: TeamStore.getAll(),
-            teamMembers: TeamStore.getMyTeamMembers()
+            teamMembers: TeamStore.getMyTeamMembers(),
+            teamListings: TeamStore.getTeamListings()
         });
     }
 
@@ -183,14 +177,14 @@ export default class SidebarHeaderDropdown extends React.Component {
 
     render() {
         const config = global.mm_config;
-        var teamLink = '';
-        var inviteLink = '';
-        var manageLink = '';
-        var sysAdminLink = '';
-        var currentUser = this.props.currentUser;
-        var isAdmin = false;
-        var isSystemAdmin = false;
-        var teamSettings = null;
+        const currentUser = this.props.currentUser;
+        let teamLink = '';
+        let inviteLink = '';
+        let manageLink = '';
+        let sysAdminLink = '';
+        let isAdmin = false;
+        let isSystemAdmin = false;
+        let teamSettings = null;
         let integrationsLink = null;
 
         if (!currentUser) {
@@ -323,8 +317,9 @@ export default class SidebarHeaderDropdown extends React.Component {
         }
 
         const teams = [];
+        let moreTeams = false;
 
-        if (config.EnableTeamCreation === 'true') {
+        if (config.EnableTeamCreation === 'true' || UserStore.isSystemAdminForCurrentUser()) {
             teams.push(
                 <li key='newTeam_li'>
                     <Link
@@ -335,6 +330,34 @@ export default class SidebarHeaderDropdown extends React.Component {
                         <FormattedMessage
                             id='navbar_dropdown.create'
                             defaultMessage='Create a New Team'
+                        />
+                    </Link>
+                </li>
+            );
+        }
+
+        const isAlreadyMember = this.state.teamMembers.reduce((result, item) => {
+            result[item.team_id] = true;
+            return result;
+        }, {});
+
+        for (const id in this.state.teamListings) {
+            if (this.state.teamListings.hasOwnProperty(id) && !isAlreadyMember[id]) {
+                moreTeams = true;
+                break;
+            }
+        }
+
+        if (moreTeams) {
+            teams.push(
+                <li key='joinTeam_li'>
+                    <Link
+                        onClick={this.handleClick}
+                        to='/select_team'
+                    >
+                        <FormattedMessage
+                            id='navbar_dropdown.join'
+                            defaultMessage='Join Another Team'
                         />
                     </Link>
                 </li>
@@ -354,39 +377,6 @@ export default class SidebarHeaderDropdown extends React.Component {
                 </a>
             </li>
         );
-
-        if (this.state.teamMembers && this.state.teamMembers.length > 1) {
-            teams.push(
-                <li
-                    key='teamDiv'
-                    className='divider'
-                />
-            );
-
-            for (var index in this.state.teamMembers) {
-                if (this.state.teamMembers.hasOwnProperty(index)) {
-                    var teamMember = this.state.teamMembers[index];
-                    var team = this.state.teams[teamMember.team_id];
-
-                    if (team.name !== this.props.teamName) {
-                        teams.push(
-                            <li key={'team_' + team.name}>
-                                <Link
-                                    to={'/' + team.name + '/channels/town-square'}
-                                    onClick={this.handleSwitchTeams}
-                                >
-                                    <FormattedMessage
-                                        id='navbar_dropdown.switchTo'
-                                        defaultMessage='Switch to '
-                                    />
-                                    {team.display_name}
-                                </Link>
-                            </li>
-                        );
-                    }
-                }
-            }
-        }
 
         let helpLink = null;
         if (config.HelpLink) {
@@ -426,7 +416,7 @@ export default class SidebarHeaderDropdown extends React.Component {
 
         let nativeAppDivider = null;
         let nativeAppLink = null;
-        if (global.window.mm_config.AppDownloadLink) {
+        if (global.window.mm_config.AppDownloadLink && !UserAgent.isMobileApp()) {
             nativeAppDivider = <li className='divider'/>;
             nativeAppLink = (
                 <li>
@@ -448,6 +438,7 @@ export default class SidebarHeaderDropdown extends React.Component {
         if (this.state.showTeamMembersModal) {
             teamMembersModal = (
                 <TeamMembersModal
+                    onLoad={this.toggleDropdown}
                     onHide={this.hideTeamMembersModal}
                     isAdmin={isAdmin}
                 />
@@ -476,6 +467,7 @@ export default class SidebarHeaderDropdown extends React.Component {
                 <Dropdown.Menu>
                     <li>
                         <a
+                            id='accountSettings'
                             href='#'
                             onClick={this.toggleAccountSettingsModal}
                         >
@@ -489,8 +481,9 @@ export default class SidebarHeaderDropdown extends React.Component {
                     {teamLink}
                     <li>
                         <a
+                            id='logout'
                             href='#'
-                            onClick={GlobalActions.emitUserLoggedOutEvent}
+                            onClick={() => GlobalActions.emitUserLoggedOutEvent()}
                         >
                             <FormattedMessage
                                 id='navbar_dropdown.logout'

@@ -51,6 +51,21 @@ describe('Client.User', function() {
         });
     });
 
+    it('getByEmail', function(done) {
+        TestHelper.initBasic(() => {
+            TestHelper.basicClient().getByEmail(
+                TestHelper.basicUser().email,
+                function(data) {
+                    assert.equal(data.email, TestHelper.basicUser().email);
+                    done();
+                },
+                function(err) {
+                    done(new Error(err.message));
+                }
+            );
+        });
+    });
+
     it('getInitialLoad', function(done) {
         TestHelper.initBasic(() => {
             TestHelper.basicClient().getInitialLoad(
@@ -243,16 +258,15 @@ describe('Client.User', function() {
         });
     });
 
-    /* TODO: FIX THIS TEST
     it('updateActive', function(done) {
         TestHelper.initBasic(() => {
-            var user = TestHelper.basicUser();
+            const user = TestHelper.basicUser();
 
             TestHelper.basicClient().updateActive(
                 user.id,
                 false,
                 function(data) {
-                    assert.equal(data.last_activity_at > 0, true);
+                    assert.ok(data.delete_at > 0);
                     done();
                 },
                 function(err) {
@@ -260,7 +274,7 @@ describe('Client.User', function() {
                 }
             );
         });
-        });*/
+    });
 
     it('sendPasswordReset', function(done) {
         TestHelper.initBasic(() => {
@@ -306,6 +320,7 @@ describe('Client.User', function() {
             TestHelper.basicClient().emailToOAuth(
                 user.email,
                 'new_password',
+                '',
                 'gitlab',
                 function() {
                     throw Error('shouldnt work');
@@ -345,6 +360,7 @@ describe('Client.User', function() {
             TestHelper.basicClient().emailToLdap(
                 user.email,
                 user.password,
+                '',
                 'unknown_id',
                 'unknown_pwd',
                 function() {
@@ -365,6 +381,7 @@ describe('Client.User', function() {
             TestHelper.basicClient().ldapToEmail(
                 user.email,
                 'new_password',
+                '',
                 'new_password',
                 function() {
                     throw Error('shouldnt work');

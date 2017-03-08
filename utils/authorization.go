@@ -3,52 +3,140 @@
 
 package utils
 
-import "github.com/mattermost/platform/model"
+import (
+	"github.com/mattermost/platform/model"
+)
 
 func SetDefaultRolesBasedOnConfig() {
 	// Reset the roles to default to make this logic easier
 	model.InitalizeRoles()
 
-	switch *Cfg.TeamSettings.RestrictPublicChannelManagement {
+	switch *Cfg.TeamSettings.RestrictPublicChannelCreation {
 	case model.PERMISSIONS_ALL:
-		model.ROLE_CHANNEL_USER.Permissions = append(
-			model.ROLE_CHANNEL_USER.Permissions,
-			model.PERMISSION_MANAGE_PUBLIC_CHANNEL_PROPERTIES.Id,
-		)
 		model.ROLE_TEAM_USER.Permissions = append(
 			model.ROLE_TEAM_USER.Permissions,
-			model.PERMISSION_DELETE_PUBLIC_CHANNEL.Id,
 			model.PERMISSION_CREATE_PUBLIC_CHANNEL.Id,
 		)
 		break
 	case model.PERMISSIONS_TEAM_ADMIN:
 		model.ROLE_TEAM_ADMIN.Permissions = append(
 			model.ROLE_TEAM_ADMIN.Permissions,
-			model.PERMISSION_MANAGE_PUBLIC_CHANNEL_PROPERTIES.Id,
-			model.PERMISSION_DELETE_PUBLIC_CHANNEL.Id,
 			model.PERMISSION_CREATE_PUBLIC_CHANNEL.Id,
+		)
+		break
+	}
+
+	switch *Cfg.TeamSettings.RestrictPublicChannelManagement {
+	case model.PERMISSIONS_ALL:
+		model.ROLE_TEAM_USER.Permissions = append(
+			model.ROLE_TEAM_USER.Permissions,
+			model.PERMISSION_MANAGE_PUBLIC_CHANNEL_PROPERTIES.Id,
+		)
+		break
+	case model.PERMISSIONS_CHANNEL_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_MANAGE_PUBLIC_CHANNEL_PROPERTIES.Id,
+		)
+		model.ROLE_CHANNEL_ADMIN.Permissions = append(
+			model.ROLE_CHANNEL_ADMIN.Permissions,
+			model.PERMISSION_MANAGE_PUBLIC_CHANNEL_PROPERTIES.Id,
+		)
+		break
+	case model.PERMISSIONS_TEAM_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_MANAGE_PUBLIC_CHANNEL_PROPERTIES.Id,
+		)
+		break
+	}
+
+	switch *Cfg.TeamSettings.RestrictPublicChannelDeletion {
+	case model.PERMISSIONS_ALL:
+		model.ROLE_TEAM_USER.Permissions = append(
+			model.ROLE_TEAM_USER.Permissions,
+			model.PERMISSION_DELETE_PUBLIC_CHANNEL.Id,
+		)
+		break
+	case model.PERMISSIONS_CHANNEL_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_DELETE_PUBLIC_CHANNEL.Id,
+		)
+		model.ROLE_CHANNEL_ADMIN.Permissions = append(
+			model.ROLE_CHANNEL_ADMIN.Permissions,
+			model.PERMISSION_DELETE_PUBLIC_CHANNEL.Id,
+		)
+		break
+	case model.PERMISSIONS_TEAM_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_DELETE_PUBLIC_CHANNEL.Id,
+		)
+		break
+	}
+
+	switch *Cfg.TeamSettings.RestrictPrivateChannelCreation {
+	case model.PERMISSIONS_ALL:
+		model.ROLE_TEAM_USER.Permissions = append(
+			model.ROLE_TEAM_USER.Permissions,
+			model.PERMISSION_CREATE_PRIVATE_CHANNEL.Id,
+		)
+		break
+	case model.PERMISSIONS_TEAM_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_CREATE_PRIVATE_CHANNEL.Id,
 		)
 		break
 	}
 
 	switch *Cfg.TeamSettings.RestrictPrivateChannelManagement {
 	case model.PERMISSIONS_ALL:
-		model.ROLE_CHANNEL_USER.Permissions = append(
-			model.ROLE_CHANNEL_USER.Permissions,
-			model.PERMISSION_MANAGE_PRIVATE_CHANNEL_PROPERTIES.Id,
-		)
 		model.ROLE_TEAM_USER.Permissions = append(
 			model.ROLE_TEAM_USER.Permissions,
-			model.PERMISSION_DELETE_PRIVATE_CHANNEL.Id,
-			model.PERMISSION_CREATE_PRIVATE_CHANNEL.Id,
+			model.PERMISSION_MANAGE_PRIVATE_CHANNEL_PROPERTIES.Id,
+		)
+		break
+	case model.PERMISSIONS_CHANNEL_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_MANAGE_PRIVATE_CHANNEL_PROPERTIES.Id,
+		)
+		model.ROLE_CHANNEL_ADMIN.Permissions = append(
+			model.ROLE_CHANNEL_ADMIN.Permissions,
+			model.PERMISSION_MANAGE_PRIVATE_CHANNEL_PROPERTIES.Id,
 		)
 		break
 	case model.PERMISSIONS_TEAM_ADMIN:
 		model.ROLE_TEAM_ADMIN.Permissions = append(
 			model.ROLE_TEAM_ADMIN.Permissions,
 			model.PERMISSION_MANAGE_PRIVATE_CHANNEL_PROPERTIES.Id,
+		)
+		break
+	}
+
+	switch *Cfg.TeamSettings.RestrictPrivateChannelDeletion {
+	case model.PERMISSIONS_ALL:
+		model.ROLE_TEAM_USER.Permissions = append(
+			model.ROLE_TEAM_USER.Permissions,
 			model.PERMISSION_DELETE_PRIVATE_CHANNEL.Id,
-			model.PERMISSION_CREATE_PRIVATE_CHANNEL.Id,
+		)
+		break
+	case model.PERMISSIONS_CHANNEL_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_DELETE_PRIVATE_CHANNEL.Id,
+		)
+		model.ROLE_CHANNEL_ADMIN.Permissions = append(
+			model.ROLE_CHANNEL_ADMIN.Permissions,
+			model.PERMISSION_DELETE_PRIVATE_CHANNEL.Id,
+		)
+		break
+	case model.PERMISSIONS_TEAM_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_DELETE_PRIVATE_CHANNEL.Id,
 		)
 		break
 	}
@@ -78,4 +166,33 @@ func SetDefaultRolesBasedOnConfig() {
 			model.PERMISSION_INVITE_USER.Id,
 		)
 	}
+
+	switch *Cfg.ServiceSettings.RestrictPostDelete {
+	case model.PERMISSIONS_DELETE_POST_ALL:
+		model.ROLE_CHANNEL_USER.Permissions = append(
+			model.ROLE_CHANNEL_USER.Permissions,
+			model.PERMISSION_DELETE_POST.Id,
+		)
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_DELETE_POST.Id,
+			model.PERMISSION_DELETE_OTHERS_POSTS.Id,
+		)
+		break
+	case model.PERMISSIONS_DELETE_POST_TEAM_ADMIN:
+		model.ROLE_TEAM_ADMIN.Permissions = append(
+			model.ROLE_TEAM_ADMIN.Permissions,
+			model.PERMISSION_DELETE_POST.Id,
+			model.PERMISSION_DELETE_OTHERS_POSTS.Id,
+		)
+		break
+	}
+
+	if Cfg.TeamSettings.EnableTeamCreation {
+		model.ROLE_SYSTEM_USER.Permissions = append(
+			model.ROLE_SYSTEM_USER.Permissions,
+			model.PERMISSION_CREATE_TEAM.Id,
+		)
+	}
+
 }

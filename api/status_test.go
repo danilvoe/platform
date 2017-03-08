@@ -4,12 +4,14 @@
 package api
 
 import (
-	"github.com/mattermost/platform/model"
-	"github.com/mattermost/platform/store"
-	"github.com/mattermost/platform/utils"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mattermost/platform/app"
+	"github.com/mattermost/platform/model"
+	"github.com/mattermost/platform/store"
+	"github.com/mattermost/platform/utils"
 )
 
 func TestStatuses(t *testing.T) {
@@ -30,15 +32,15 @@ func TestStatuses(t *testing.T) {
 	team := model.Team{DisplayName: "Name", Name: "z-z-" + model.NewId() + "a", Email: "test@nowhere.com", Type: model.TEAM_OPEN}
 	rteam, _ := Client.CreateTeam(&team)
 
-	user := model.User{Email: strings.ToLower(model.NewId()) + "success+test@simulator.amazonses.com", Nickname: "Corey Hulen", Password: "passwd1"}
+	user := model.User{Email: strings.ToLower(model.NewId()) + "success+test@simulator.amazonses.com", Nickname: "Corey Hulen", Password: "passwd1", Username: "n" + model.NewId()}
 	ruser := Client.Must(Client.CreateUser(&user, "")).Data.(*model.User)
 	LinkUserToTeam(ruser, rteam.Data.(*model.Team))
-	store.Must(Srv.Store.User().VerifyEmail(ruser.Id))
+	store.Must(app.Srv.Store.User().VerifyEmail(ruser.Id))
 
-	user2 := model.User{Email: strings.ToLower(model.NewId()) + "success+test@simulator.amazonses.com", Nickname: "Corey Hulen", Password: "passwd1"}
+	user2 := model.User{Email: strings.ToLower(model.NewId()) + "success+test@simulator.amazonses.com", Nickname: "Corey Hulen", Password: "passwd1", Username: "n" + model.NewId()}
 	ruser2 := Client.Must(Client.CreateUser(&user2, "")).Data.(*model.User)
 	LinkUserToTeam(ruser2, rteam.Data.(*model.Team))
-	store.Must(Srv.Store.User().VerifyEmail(ruser2.Id))
+	store.Must(app.Srv.Store.User().VerifyEmail(ruser2.Id))
 
 	Client.Login(user.Email, user.Password)
 	Client.SetTeamId(team.Id)
@@ -63,7 +65,7 @@ func TestStatuses(t *testing.T) {
 		t.Fatal(err2)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 
 	WebSocketClient.GetStatuses()
 	if resp := <-WebSocketClient.ResponseChannel; resp.Error != nil {
@@ -136,7 +138,7 @@ func TestStatuses(t *testing.T) {
 
 	WebSocketClient2.Close()
 
-	SetStatusAwayIfNeeded(th.BasicUser.Id, false)
+	app.SetStatusAwayIfNeeded(th.BasicUser.Id, false)
 
 	awayTimeout := *utils.Cfg.TeamSettings.UserStatusAwayTimeout
 	defer func() {
@@ -146,10 +148,10 @@ func TestStatuses(t *testing.T) {
 
 	time.Sleep(1500 * time.Millisecond)
 
-	SetStatusAwayIfNeeded(th.BasicUser.Id, false)
-	SetStatusOnline(th.BasicUser.Id, "junk", false)
+	app.SetStatusAwayIfNeeded(th.BasicUser.Id, false)
+	app.SetStatusOnline(th.BasicUser.Id, "junk", false)
 
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(1500 * time.Millisecond)
 
 	WebSocketClient.GetStatuses()
 	if resp := <-WebSocketClient.ResponseChannel; resp.Error != nil {
@@ -228,44 +230,3 @@ func TestGetStatusesByIds(t *testing.T) {
 		t.Fatal("should have errored")
 	}
 }
-
-/*
-func TestSetActiveChannel(t *testing.T) {
-	th := Setup().InitBasic()
-	Client := th.BasicClient
-
-	if _, err := Client.SetActiveChannel(th.BasicChannel.Id); err != nil {
-		t.Fatal(err)
-	}
-
-	status, _ := GetStatus(th.BasicUser.Id)
-	if status.ActiveChannel != th.BasicChannel.Id {
-		t.Fatal("active channel should be set")
-	}
-
-	if _, err := Client.SetActiveChannel(""); err != nil {
-		t.Fatal(err)
-	}
-
-	status, _ = GetStatus(th.BasicUser.Id)
-	if status.ActiveChannel != "" {
-		t.Fatal("active channel should be blank")
-	}
-
-	if _, err := Client.SetActiveChannel("123456789012345678901234567890"); err == nil {
-		t.Fatal("should have failed, id too long")
-	}
-
-	if _, err := Client.UpdateLastViewedAt(th.BasicChannel.Id, true); err != nil {
-		t.Fatal(err)
-	}
-
-	time.Sleep(500 * time.Millisecond)
-
-	status, _ = GetStatus(th.BasicUser.Id)
-	 need to check if offline to catch race
-	if status.Status != model.STATUS_OFFLINE && status.ActiveChannel != th.BasicChannel.Id {
-		t.Fatal("active channel should be set")
-	}
-}
-*/

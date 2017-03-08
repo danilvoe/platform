@@ -6,6 +6,8 @@ package api
 import (
 	"strings"
 
+	l4g "github.com/alecthomas/log4go"
+	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
 )
 
@@ -34,68 +36,60 @@ func (me *msgProvider) GetCommand(c *Context) *model.Command {
 	}
 }
 
-func (me *msgProvider) DoCommand(c *Context, channelId string, message string) *model.CommandResponse {
+func (me *msgProvider) DoCommand(c *Context, args *model.CommandArgs, message string) *model.CommandResponse {
 
 	splitMessage := strings.SplitN(message, " ", 2)
 
 	parsedMessage := ""
-	targetUser := ""
+	targetUsername := ""
 
 	if len(splitMessage) > 1 {
 		parsedMessage = strings.SplitN(message, " ", 2)[1]
 	}
-	targetUser = strings.SplitN(message, " ", 2)[0]
-	targetUser = strings.TrimPrefix(targetUser, "@")
+	targetUsername = strings.SplitN(message, " ", 2)[0]
+	targetUsername = strings.TrimPrefix(targetUsername, "@")
 
-	// FIX ME
-	// Why isn't this selecting by username since we have that?
-	if profileList := <-Srv.Store.User().GetAll(); profileList.Err != nil {
-		c.Err = profileList.Err
-		return &model.CommandResponse{Text: c.T("api.command_msg.list.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
+	var userProfile *model.User
+	if result := <-app.Srv.Store.User().GetByUsername(targetUsername); result.Err != nil {
+		l4g.Error(result.Err.Error())
+		return &model.CommandResponse{Text: c.T("api.command_msg.missing.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
 	} else {
-		profileUsers := profileList.Data.([]*model.User)
-		for _, userProfile := range profileUsers {
-			// Don't let users open DMs with themselves. It probably won't work out well.
-			if userProfile.Id == c.Session.UserId {
-				continue
+		userProfile = result.Data.(*model.User)
+	}
+
+	if userProfile.Id == c.Session.UserId {
+		return &model.CommandResponse{Text: c.T("api.command_msg.missing.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
+	}
+
+	// Find the channel based on this user
+	channelName := model.GetDMNameFromIds(c.Session.UserId, userProfile.Id)
+
+	targetChannelId := ""
+	if channel := <-app.Srv.Store.Channel().GetByName(c.TeamId, channelName, true); channel.Err != nil {
+		if channel.Err.Id == "store.sql_channel.get_by_name.missing.app_error" {
+			if directChannel, err := app.CreateDirectChannel(c.Session.UserId, userProfile.Id); err != nil {
+				l4g.Error(err.Error())
+				return &model.CommandResponse{Text: c.T("api.command_msg.dm_fail.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
+			} else {
+				targetChannelId = directChannel.Id
 			}
-			if userProfile.Username == targetUser {
-				targetChannelId := ""
+		} else {
+			l4g.Error(channel.Err.Error())
+			return &model.CommandResponse{Text: c.T("api.command_msg.dm_fail.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
+		}
+	} else {
+		targetChannelId = channel.Data.(*model.Channel).Id
+	}
 
-				// Find the channel based on this user
-				channelName := model.GetDMNameFromIds(c.Session.UserId, userProfile.Id)
-
-				if channel := <-Srv.Store.Channel().GetByName(c.TeamId, channelName); channel.Err != nil {
-					if channel.Err.Id == "store.sql_channel.get_by_name.missing.app_error" {
-						if directChannel, err := CreateDirectChannel(c.Session.UserId, userProfile.Id); err != nil {
-							c.Err = err
-							return &model.CommandResponse{Text: c.T("api.command_msg.dm_fail.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
-						} else {
-							targetChannelId = directChannel.Id
-						}
-					} else {
-						c.Err = channel.Err
-						return &model.CommandResponse{Text: c.T("api.command_msg.dm_fail.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
-					}
-				} else {
-					targetChannelId = channel.Data.(*model.Channel).Id
-				}
-
-				makeDirectChannelVisible(targetChannelId)
-				if len(parsedMessage) > 0 {
-					post := &model.Post{}
-					post.Message = parsedMessage
-					post.ChannelId = targetChannelId
-					post.UserId = c.Session.UserId
-					if _, err := CreatePost(c, post, true); err != nil {
-						return &model.CommandResponse{Text: c.T("api.command_msg.fail.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
-					}
-				}
-
-				return &model.CommandResponse{GotoLocation: c.GetTeamURL() + "/channels/" + channelName, Text: "", ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
-			}
+	if len(parsedMessage) > 0 {
+		post := &model.Post{}
+		post.Message = parsedMessage
+		post.ChannelId = targetChannelId
+		post.UserId = c.Session.UserId
+		if _, err := app.CreatePost(post, c.TeamId, true); err != nil {
+			return &model.CommandResponse{Text: c.T("api.command_msg.fail.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
 		}
 	}
 
-	return &model.CommandResponse{Text: c.T("api.command_msg.missing.app_error"), ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
+	return &model.CommandResponse{GotoLocation: c.GetTeamURL() + "/channels/" + channelName, Text: "", ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL}
 }

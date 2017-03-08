@@ -4,6 +4,7 @@
 package api
 
 import (
+	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
 )
 
@@ -32,14 +33,13 @@ func (me *LogoutProvider) GetCommand(c *Context) *model.Command {
 	}
 }
 
-func (me *LogoutProvider) DoCommand(c *Context, channelId string, message string) *model.CommandResponse {
+func (me *LogoutProvider) DoCommand(c *Context, args *model.CommandArgs, message string) *model.CommandResponse {
 	FAIL := &model.CommandResponse{ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: c.T("api.command_logout.fail_message")}
-	SUCCESS := &model.CommandResponse{GotoLocation: "/", ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: c.T("api.command_logout.success_message")}
+	SUCCESS := &model.CommandResponse{GotoLocation: "/login"}
 
 	// We can't actually remove the user's cookie from here so we just dump their session and let the browser figure it out
 	if c.Session.Id != "" {
-		RevokeSessionById(c, c.Session.Id)
-		if c.Err != nil {
+		if err := app.RevokeSessionById(c.Session.Id); err != nil {
 			return FAIL
 		}
 		return SUCCESS

@@ -6,7 +6,6 @@ package model
 import (
 	"bytes"
 	"fmt"
-	l4g "github.com/alecthomas/log4go"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -15,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	l4g "github.com/alecthomas/log4go"
 )
 
 const (
@@ -34,18 +35,27 @@ const (
 	STATUS                    = "status"
 	STATUS_OK                 = "OK"
 	STATUS_FAIL               = "FAIL"
+	STATUS_REMOVE             = "REMOVE"
 
 	CLIENT_DIR = "webapp/dist"
 
 	API_URL_SUFFIX_V1 = "/api/v1"
 	API_URL_SUFFIX_V3 = "/api/v3"
-	API_URL_SUFFIX    = API_URL_SUFFIX_V3
+	API_URL_SUFFIX_V4 = "/api/v4"
+	API_URL_SUFFIX    = API_URL_SUFFIX_V4
 )
 
 type Result struct {
 	RequestId string
 	Etag      string
 	Data      interface{}
+}
+
+type ResponseMetadata struct {
+	StatusCode int
+	Error      *AppError
+	RequestId  string
+	Etag       string
 }
 
 type Client struct {
@@ -63,7 +73,7 @@ type Client struct {
 // NewClient constructs a new client with convienence methods for talking to
 // the server.
 func NewClient(url string) *Client {
-	return &Client{url, url + API_URL_SUFFIX, &http.Client{}, "", "", "", "", "", ""}
+	return &Client{url, url + API_URL_SUFFIX_V3, &http.Client{}, "", "", "", "", "", ""}
 }
 
 func closeBody(r *http.Response) {
@@ -291,34 +301,6 @@ func (c *Client) GetPing() (map[string]string, *AppError) {
 
 // Team Routes Section
 
-// SignupTeam sends an email with a team sign-up link to the provided address if email
-// verification is enabled, otherwise it returns a map with a "follow_link" entry
-// containing the team sign-up link.
-func (c *Client) SignupTeam(email string, displayName string) (*Result, *AppError) {
-	m := make(map[string]string)
-	m["email"] = email
-	m["display_name"] = displayName
-	if r, err := c.DoApiPost("/teams/signup", MapToJson(m)); err != nil {
-		return nil, err
-	} else {
-		defer closeBody(r)
-		return &Result{r.Header.Get(HEADER_REQUEST_ID),
-			r.Header.Get(HEADER_ETAG_SERVER), MapFromJson(r.Body)}, nil
-	}
-}
-
-// CreateTeamFromSignup creates a team based on the provided TeamSignup struct. On success
-// it returns the TeamSignup struct.
-func (c *Client) CreateTeamFromSignup(teamSignup *TeamSignup) (*Result, *AppError) {
-	if r, err := c.DoApiPost("/teams/create_from_signup", teamSignup.ToJson()); err != nil {
-		return nil, err
-	} else {
-		defer closeBody(r)
-		return &Result{r.Header.Get(HEADER_REQUEST_ID),
-			r.Header.Get(HEADER_ETAG_SERVER), TeamSignupFromJson(r.Body)}, nil
-	}
-}
-
 // CreateTeam creates a team based on the provided Team struct. On success it returns
 // the Team struct with the Id, CreateAt and other server-decided fields populated.
 func (c *Client) CreateTeam(team *Team) (*Result, *AppError) {
@@ -508,6 +490,21 @@ func (c *Client) GetByUsername(username string, etag string) (*Result, *AppError
 		defer closeBody(r)
 		return &Result{r.Header.Get(HEADER_REQUEST_ID),
 			r.Header.Get(HEADER_ETAG_SERVER), UserFromJson(r.Body)}, nil
+	}
+}
+
+// getByEmail returns a user based on a provided username string. Must be authenticated.
+func (c *Client) GetByEmail(email string, etag string) (*User, *ResponseMetadata) {
+	if r, err := c.DoApiGet(fmt.Sprintf("/users/email/%v", email), "", etag); err != nil {
+		return nil, &ResponseMetadata{StatusCode: r.StatusCode, Error: err}
+	} else {
+		defer closeBody(r)
+		return UserFromJson(r.Body),
+			&ResponseMetadata{
+				StatusCode: r.StatusCode,
+				RequestId:  r.Header.Get(HEADER_REQUEST_ID),
+				Etag:       r.Header.Get(HEADER_ETAG_SERVER),
+			}
 	}
 }
 
@@ -787,7 +784,7 @@ func (c *Client) GetSessions(id string) (*Result, *AppError) {
 }
 
 func (c *Client) EmailToOAuth(m map[string]string) (*Result, *AppError) {
-	if r, err := c.DoApiPost("/users/claim/email_to_sso", MapToJson(m)); err != nil {
+	if r, err := c.DoApiPost("/users/claim/email_to_oauth", MapToJson(m)); err != nil {
 		return nil, err
 	} else {
 		defer closeBody(r)
@@ -826,12 +823,9 @@ func (c *Client) EmailToLDAP(m map[string]string) (*Result, *AppError) {
 	}
 }
 
-func (c *Client) Command(channelId string, command string, suggest bool) (*Result, *AppError) {
-	m := make(map[string]string)
-	m["command"] = command
-	m["channelId"] = channelId
-	m["suggest"] = strconv.FormatBool(suggest)
-	if r, err := c.DoApiPost(c.GetTeamRoute()+"/commands/execute", MapToJson(m)); err != nil {
+func (c *Client) Command(channelId string, command string) (*Result, *AppError) {
+	args := &CommandArgs{ChannelId: channelId, Command: command}
+	if r, err := c.DoApiPost(c.GetTeamRoute()+"/commands/execute", args.ToJson()); err != nil {
 		return nil, err
 	} else {
 		defer closeBody(r)
@@ -967,6 +961,16 @@ func (c *Client) GetConfig() (*Result, *AppError) {
 func (c *Client) ReloadConfig() (bool, *AppError) {
 	c.clearExtraProperties()
 	if r, err := c.DoApiGet("/admin/reload_config", "", ""); err != nil {
+		return false, err
+	} else {
+		c.fillInExtraProperties(r)
+		return c.CheckStatusOK(r), nil
+	}
+}
+
+func (c *Client) InvalidateAllCaches() (bool, *AppError) {
+	c.clearExtraProperties()
+	if r, err := c.DoApiGet("/admin/invalidate_all_caches", "", ""); err != nil {
 		return false, err
 	} else {
 		c.fillInExtraProperties(r)
@@ -1117,6 +1121,16 @@ func (c *Client) CreateDirectChannel(userId string) (*Result, *AppError) {
 	}
 }
 
+func (c *Client) CreateGroupChannel(userIds []string) (*Result, *AppError) {
+	if r, err := c.DoApiPost(c.GetTeamRoute()+"/channels/create_group", ArrayToJson(userIds)); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), ChannelFromJson(r.Body)}, nil
+	}
+}
+
 func (c *Client) UpdateChannel(channel *Channel) (*Result, *AppError) {
 	if r, err := c.DoApiPost(c.GetTeamRoute()+"/channels/update", channel.ToJson()); err != nil {
 		return nil, err
@@ -1245,6 +1259,16 @@ func (c *Client) GetChannels(etag string) (*Result, *AppError) {
 	}
 }
 
+func (c *Client) GetChannelByName(channelName string) (*Result, *AppError) {
+	if r, err := c.DoApiGet(c.GetChannelNameRoute(channelName), "", ""); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), ChannelFromJson(r.Body)}, nil
+	}
+}
+
 func (c *Client) JoinChannel(id string) (*Result, *AppError) {
 	if r, err := c.DoApiPost(c.GetChannelRoute(id)+"/join", ""); err != nil {
 		return nil, err
@@ -1312,6 +1336,7 @@ func (c *Client) RemoveChannelMember(id, user_id string) (*Result, *AppError) {
 // UpdateLastViewedAt will mark a channel as read.
 // The channelId indicates the channel to mark as read. If active is true, push notifications
 // will be cleared if there are unread messages. The default for active is true.
+// SCHEDULED FOR DEPRECATION IN 3.8 - use ViewChannel instead
 func (c *Client) UpdateLastViewedAt(channelId string, active bool) (*Result, *AppError) {
 	data := make(map[string]interface{})
 	data["active"] = active
@@ -1321,6 +1346,23 @@ func (c *Client) UpdateLastViewedAt(channelId string, active bool) (*Result, *Ap
 		defer closeBody(r)
 		return &Result{r.Header.Get(HEADER_REQUEST_ID),
 			r.Header.Get(HEADER_ETAG_SERVER), nil}, nil
+	}
+}
+
+// ViewChannel performs all the actions related to viewing a channel. This includes marking
+// the channel and the previous one as read, and marking the channel as being actively viewed.
+// ChannelId is required but may be blank to indicate no channel is being viewed.
+// PrevChannelId is optional, populate to indicate a channel switch occurred.
+func (c *Client) ViewChannel(params ChannelView) (bool, *ResponseMetadata) {
+	if r, err := c.DoApiPost(c.GetTeamRoute()+"/channels/view", params.ToJson()); err != nil {
+		return false, &ResponseMetadata{StatusCode: r.StatusCode, Error: err}
+	} else {
+		return c.CheckStatusOK(r),
+			&ResponseMetadata{
+				StatusCode: r.StatusCode,
+				RequestId:  r.Header.Get(HEADER_REQUEST_ID),
+				Etag:       r.Header.Get(HEADER_ETAG_SERVER),
+			}
 	}
 }
 
@@ -1341,6 +1383,18 @@ func (c *Client) GetChannelMember(channelId string, userId string) (*Result, *Ap
 		defer closeBody(r)
 		return &Result{r.Header.Get(HEADER_REQUEST_ID),
 			r.Header.Get(HEADER_ETAG_SERVER), ChannelMemberFromJson(r.Body)}, nil
+	}
+}
+
+// GetChannelMembersByIds will return channel member objects as an array based on the
+// channel id and a list of user ids provided. Must be authenticated.
+func (c *Client) GetChannelMembersByIds(channelId string, userIds []string) (*Result, *AppError) {
+	if r, err := c.DoApiPost(c.GetChannelRoute(channelId)+"/members/ids", ArrayToJson(userIds)); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), ChannelMembersFromJson(r.Body)}, nil
 	}
 }
 
@@ -1411,6 +1465,36 @@ func (c *Client) GetPost(channelId string, postId string, etag string) (*Result,
 		defer closeBody(r)
 		return &Result{r.Header.Get(HEADER_REQUEST_ID),
 			r.Header.Get(HEADER_ETAG_SERVER), PostListFromJson(r.Body)}, nil
+	}
+}
+
+// GetPostById returns a post and any posts in the same thread by post id
+func (c *Client) GetPostById(postId string, etag string) (*PostList, *ResponseMetadata) {
+	if r, err := c.DoApiGet(c.GetTeamRoute()+fmt.Sprintf("/posts/%v", postId), "", etag); err != nil {
+		return nil, &ResponseMetadata{StatusCode: r.StatusCode, Error: err}
+	} else {
+		defer closeBody(r)
+		return PostListFromJson(r.Body),
+			&ResponseMetadata{
+				StatusCode: r.StatusCode,
+				RequestId:  r.Header.Get(HEADER_REQUEST_ID),
+				Etag:       r.Header.Get(HEADER_ETAG_SERVER),
+			}
+	}
+}
+
+// GetPermalink returns a post list, based on the provided channel and post ID.
+func (c *Client) GetPermalink(channelId string, postId string, etag string) (*PostList, *ResponseMetadata) {
+	if r, err := c.DoApiGet(c.GetTeamRoute()+fmt.Sprintf("/pltmp/%v", postId), "", etag); err != nil {
+		return nil, &ResponseMetadata{StatusCode: r.StatusCode, Error: err}
+	} else {
+		defer closeBody(r)
+		return PostListFromJson(r.Body),
+			&ResponseMetadata{
+				StatusCode: r.StatusCode,
+				RequestId:  r.Header.Get(HEADER_REQUEST_ID),
+				Etag:       r.Header.Get(HEADER_ETAG_SERVER),
+			}
 	}
 }
 
@@ -1701,6 +1785,7 @@ func (c *Client) GetStatusesByIds(userIds []string) (*Result, *AppError) {
 // SetActiveChannel sets the the channel id the user is currently viewing.
 // The channelId key is required but the value can be blank. Returns standard
 // response.
+// SCHEDULED FOR DEPRECATION IN 3.8 - use ViewChannel instead
 func (c *Client) SetActiveChannel(channelId string) (*Result, *AppError) {
 	data := map[string]string{}
 	data["channel_id"] = channelId
@@ -1735,6 +1820,36 @@ func (c *Client) GetTeamMembers(teamId string, offset int, limit int) (*Result, 
 	}
 }
 
+// GetMyTeamMembers will return an array with team member objects that the current user
+// is a member of. Must be authenticated.
+func (c *Client) GetMyTeamMembers() (*Result, *AppError) {
+	if r, err := c.DoApiGet("/teams/members", "", ""); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), TeamMembersFromJson(r.Body)}, nil
+	}
+}
+
+// GetMyTeamsUnread will return an array with TeamUnread objects that contain the amount of
+// unread messages and mentions the current user has for the teams it belongs to.
+// An optional team ID can be set to exclude that team from the results. Must be authenticated.
+func (c *Client) GetMyTeamsUnread(teamId string) (*Result, *AppError) {
+	endpoint := "/teams/unread"
+
+	if teamId != "" {
+		endpoint += fmt.Sprintf("?id=%s", url.QueryEscape(teamId))
+	}
+	if r, err := c.DoApiGet(endpoint, "", ""); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), TeamsUnreadFromJson(r.Body)}, nil
+	}
+}
+
 // GetTeamMember will return a team member object based on the team id and user id provided.
 // Must be authenticated.
 func (c *Client) GetTeamMember(teamId string, userId string) (*Result, *AppError) {
@@ -1751,6 +1866,18 @@ func (c *Client) GetTeamMember(teamId string, userId string) (*Result, *AppError
 // based on the team id provided. Must be authenticated.
 func (c *Client) GetTeamStats(teamId string) (*Result, *AppError) {
 	if r, err := c.DoApiGet(fmt.Sprintf("/teams/%v/stats", teamId), "", ""); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), TeamStatsFromJson(r.Body)}, nil
+	}
+}
+
+// GetTeamStats will return a team stats object containing the number of users on the team
+// based on the team id provided. Must be authenticated.
+func (c *Client) GetTeamByName(teamName string) (*Result, *AppError) {
+	if r, err := c.DoApiGet(fmt.Sprintf("/teams/name/%v", teamName), "", ""); err != nil {
 		return nil, err
 	} else {
 		defer closeBody(r)
@@ -1891,6 +2018,16 @@ func (c *Client) CreateIncomingWebhook(hook *IncomingWebhook) (*Result, *AppErro
 	}
 }
 
+func (c *Client) UpdateIncomingWebhook(hook *IncomingWebhook) (*Result, *AppError) {
+	if r, err := c.DoApiPost(c.GetTeamRoute()+"/hooks/incoming/update", hook.ToJson()); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), IncomingWebhookFromJson(r.Body)}, nil
+	}
+}
+
 func (c *Client) PostToWebhook(id, payload string) (*Result, *AppError) {
 	if r, err := c.DoPost("/hooks/"+id, payload, "application/x-www-form-urlencoded"); err != nil {
 		return nil, err
@@ -1974,6 +2111,16 @@ func (c *Client) DeletePreferences(preferences *Preferences) (bool, *AppError) {
 
 func (c *Client) CreateOutgoingWebhook(hook *OutgoingWebhook) (*Result, *AppError) {
 	if r, err := c.DoApiPost(c.GetTeamRoute()+"/hooks/outgoing/create", hook.ToJson()); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), OutgoingWebhookFromJson(r.Body)}, nil
+	}
+}
+
+func (c *Client) UpdateOutgoingWebhook(hook *OutgoingWebhook) (*Result, *AppError) {
+	if r, err := c.DoApiPost(c.GetTeamRoute()+"/hooks/outgoing/update", hook.ToJson()); err != nil {
 		return nil, err
 	} else {
 		defer closeBody(r)
@@ -2217,5 +2364,28 @@ func (c *Client) ListReactions(channelId string, postId string) ([]*Reaction, *A
 		defer closeBody(r)
 		c.fillInExtraProperties(r)
 		return ReactionsFromJson(r.Body), nil
+	}
+}
+
+// Updates the user's roles in the channel by replacing them with the roles provided.
+func (c *Client) UpdateChannelRoles(channelId string, userId string, roles string) (map[string]string, *ResponseMetadata) {
+	data := make(map[string]string)
+	data["new_roles"] = roles
+	data["user_id"] = userId
+
+	if r, err := c.DoApiPost(c.GetChannelRoute(channelId)+"/update_member_roles", MapToJson(data)); err != nil {
+		metadata := ResponseMetadata{Error: err}
+		if r != nil {
+			metadata.StatusCode = r.StatusCode
+		}
+		return nil, &metadata
+	} else {
+		defer closeBody(r)
+		return MapFromJson(r.Body),
+			&ResponseMetadata{
+				StatusCode: r.StatusCode,
+				RequestId:  r.Header.Get(HEADER_REQUEST_ID),
+				Etag:       r.Header.Get(HEADER_ETAG_SERVER),
+			}
 	}
 }

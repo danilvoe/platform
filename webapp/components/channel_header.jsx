@@ -28,16 +28,16 @@ import * as WebrtcActions from 'actions/webrtc_actions.jsx';
 import * as ChannelActions from 'actions/channel_actions.jsx';
 import * as Utils from 'utils/utils.jsx';
 import * as ChannelUtils from 'utils/channel_utils.jsx';
+import {getSiteURL} from 'utils/url.jsx';
 import * as TextFormatting from 'utils/text_formatting.jsx';
-import Client from 'client/web_client.jsx';
-import * as AsyncClient from 'utils/async_client.jsx';
 import {getFlaggedPosts} from 'actions/post_actions.jsx';
 
-import {Constants, Preferences, UserStatuses} from 'utils/constants.jsx';
+import AppDispatcher from 'dispatcher/app_dispatcher.jsx';
+
+import {Constants, Preferences, UserStatuses, ActionTypes} from 'utils/constants.jsx';
 
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
-import {browserHistory} from 'react-router/es6';
 import {Tooltip, OverlayTrigger, Popover} from 'react-bootstrap';
 
 const PreReleaseFeatures = Constants.PRE_RELEASE_FEATURES;
@@ -55,6 +55,7 @@ export default class ChannelHeader extends React.Component {
         this.getFlagged = this.getFlagged.bind(this);
         this.initWebrtc = this.initWebrtc.bind(this);
         this.onBusy = this.onBusy.bind(this);
+        this.openDirectMessageModal = this.openDirectMessageModal.bind(this);
 
         const state = this.getStateFromStores();
         state.showEditChannelPurposeModal = false;
@@ -102,6 +103,7 @@ export default class ChannelHeader extends React.Component {
         ChannelStore.addStatsChangeListener(this.onListenerChange);
         SearchStore.addSearchChangeListener(this.onListenerChange);
         PreferenceStore.addChangeListener(this.onListenerChange);
+        UserStore.addChangeListener(this.onListenerChange);
         UserStore.addInChannelChangeListener(this.onListenerChange);
         UserStore.addStatusesChangeListener(this.onListenerChange);
         WebrtcStore.addChangedListener(this.onListenerChange);
@@ -115,6 +117,7 @@ export default class ChannelHeader extends React.Component {
         ChannelStore.removeStatsChangeListener(this.onListenerChange);
         SearchStore.removeSearchChangeListener(this.onListenerChange);
         PreferenceStore.removeChangeListener(this.onListenerChange);
+        UserStore.removeChangeListener(this.onListenerChange);
         UserStore.removeInChannelChangeListener(this.onListenerChange);
         UserStore.removeStatusesChangeListener(this.onListenerChange);
         WebrtcStore.removeChangedListener(this.onListenerChange);
@@ -131,21 +134,7 @@ export default class ChannelHeader extends React.Component {
     }
 
     handleLeave() {
-        Client.leaveChannel(this.state.channel.id,
-            () => {
-                const channelId = this.state.channel.id;
-
-                if (this.state.isFavorite) {
-                    ChannelActions.unmarkFavorite(channelId);
-                }
-
-                const townsquare = ChannelStore.getByName('town-square');
-                browserHistory.push(TeamStore.getCurrentTeamRelativeUrl() + '/channels/' + townsquare.name);
-            },
-            (err) => {
-                AsyncClient.dispatchError(err, 'handleLeave');
-            }
-        );
+        ChannelActions.leaveChannel(this.state.channel.id);
     }
 
     toggleFavorite = (e) => {
@@ -184,11 +173,6 @@ export default class ChannelHeader extends React.Component {
                 e.preventDefault();
                 this.searchMentions(e);
             }
-
-          //@TODO create shortcut for toggling flagged posts
-          // else if (e.keyCode == Constants.KeyCodes.<keycode>) {
-          //   this.toggleFlagged();
-          // }
         }
     }
 
@@ -206,30 +190,6 @@ export default class ChannelHeader extends React.Component {
         });
     }
 
-    showManagementOptions(channel, isAdmin, isSystemAdmin) {
-        if (global.window.mm_license.IsLicensed !== 'true') {
-            return true;
-        }
-
-        if (channel.type === Constants.OPEN_CHANNEL) {
-            if (global.window.mm_config.RestrictPublicChannelManagement === Constants.PERMISSIONS_SYSTEM_ADMIN && !isSystemAdmin) {
-                return false;
-            }
-            if (global.window.mm_config.RestrictPublicChannelManagement === Constants.PERMISSIONS_TEAM_ADMIN && !isAdmin) {
-                return false;
-            }
-        } else if (channel.type === Constants.PRIVATE_CHANNEL) {
-            if (global.window.mm_config.RestrictPrivateChannelManagement === Constants.PERMISSIONS_SYSTEM_ADMIN && !isSystemAdmin) {
-                return false;
-            }
-            if (global.window.mm_config.RestrictPrivateChannelManagement === Constants.PERMISSIONS_TEAM_ADMIN && !isAdmin) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     initWebrtc(contactId, isOnline) {
         if (isOnline && !this.state.isBusy) {
             GlobalActions.emitCloseRightHandSide();
@@ -239,6 +199,14 @@ export default class ChannelHeader extends React.Component {
 
     onBusy(isBusy) {
         this.setState({isBusy});
+    }
+
+    openDirectMessageModal() {
+        AppDispatcher.handleViewAction({
+            type: ActionTypes.TOGGLE_DM_MODAL,
+            value: true,
+            startingUsers: UserStore.getProfileListInChannel(this.props.channelId, true)
+        });
     }
 
     render() {
@@ -288,7 +256,9 @@ export default class ChannelHeader extends React.Component {
         let channelTitle = channel.display_name;
         const isAdmin = TeamStore.isTeamAdminForCurrentTeam() || UserStore.isSystemAdminForCurrentUser();
         const isSystemAdmin = UserStore.isSystemAdminForCurrentUser();
-        const isDirect = (this.state.channel.type === 'D');
+        const isChannelAdmin = ChannelStore.isChannelAdminForCurrentChannel();
+        const isDirect = (this.state.channel.type === Constants.DM_CHANNEL);
+        const isGroup = (this.state.channel.type === Constants.GM_CHANNEL);
         let webrtc;
 
         if (isDirect) {
@@ -361,6 +331,10 @@ export default class ChannelHeader extends React.Component {
             }
         }
 
+        if (isGroup) {
+            channelTitle = ChannelUtils.buildGroupChannelName(channel.id);
+        }
+
         let channelTerm = (
             <FormattedMessage
                 id='channel_header.channel'
@@ -404,6 +378,64 @@ export default class ChannelHeader extends React.Component {
                             defaultMessage='Edit Channel Header'
                         />
                     </ToggleModalButton>
+                </li>
+            );
+        } else if (isGroup) {
+            dropdownContents.push(
+                <li
+                    key='edit_header_direct'
+                    role='presentation'
+                >
+                    <ToggleModalButton
+                        role='menuitem'
+                        dialogType={EditChannelHeaderModal}
+                        dialogProps={{channel}}
+                    >
+                        <FormattedMessage
+                            id='channel_header.channelHeader'
+                            defaultMessage='Edit Channel Header'
+                        />
+                    </ToggleModalButton>
+                </li>
+            );
+
+            dropdownContents.push(
+                <li
+                    key='notification_preferences'
+                    role='presentation'
+                >
+                    <ToggleModalButton
+                        role='menuitem'
+                        dialogType={ChannelNotificationsModal}
+                        dialogProps={{
+                            channel,
+                            channelMember: this.state.memberChannel,
+                            currentUser: this.state.currentUser
+                        }}
+                    >
+                        <FormattedMessage
+                            id='channel_header.notificationPreferences'
+                            defaultMessage='Notification Preferences'
+                        />
+                    </ToggleModalButton>
+                </li>
+            );
+
+            dropdownContents.push(
+                <li
+                    key='add_members'
+                    role='presentation'
+                >
+                    <a
+                        role='menuitem'
+                        href='#'
+                        onClick={this.openDirectMessageModal}
+                    >
+                        <FormattedMessage
+                            id='channel_header.addMembers'
+                            defaultMessage='Add Members'
+                        />
+                    </a>
                 </li>
             );
         } else {
@@ -467,50 +499,30 @@ export default class ChannelHeader extends React.Component {
                             dialogProps={{channel, currentUser: this.state.currentUser}}
                         >
                             <FormattedMessage
-                                id='chanel_header.addMembers'
+                                id='channel_header.addMembers'
                                 defaultMessage='Add Members'
                             />
                         </ToggleModalButton>
                     </li>
                 );
 
-                if (isAdmin) {
-                    dropdownContents.push(
-                        <li
-                            key='manage_members'
-                            role='presentation'
+                dropdownContents.push(
+                    <li
+                        key='manage_members'
+                        role='presentation'
+                    >
+                        <a
+                            role='menuitem'
+                            href='#'
+                            onClick={() => this.setState({showMembersModal: true})}
                         >
-                            <a
-                                role='menuitem'
-                                href='#'
-                                onClick={() => this.setState({showMembersModal: true})}
-                            >
-                                <FormattedMessage
-                                    id='channel_header.manageMembers'
-                                    defaultMessage='Manage Members'
-                                />
-                            </a>
-                        </li>
-                    );
-                } else {
-                    dropdownContents.push(
-                        <li
-                            key='view_members'
-                            role='presentation'
-                        >
-                            <a
-                                role='menuitem'
-                                href='#'
-                                onClick={() => this.setState({showMembersModal: true})}
-                            >
-                                <FormattedMessage
-                                    id='channel_header.viewMembers'
-                                    defaultMessage='View Members'
-                                />
-                            </a>
-                        </li>
-                    );
-                }
+                            <FormattedMessage
+                                id='channel_header.manageMembers'
+                                defaultMessage='Manage Members'
+                            />
+                        </a>
+                    </li>
+                );
             }
 
             dropdownContents.push(
@@ -541,7 +553,7 @@ export default class ChannelHeader extends React.Component {
                 </li>
             );
 
-            if (this.showManagementOptions(channel, isAdmin, isSystemAdmin)) {
+            if (ChannelUtils.showManagementOptions(channel, isAdmin, isSystemAdmin, isChannelAdmin)) {
                 dropdownContents.push(
                     <li
                         key='set_channel_header'
@@ -604,7 +616,9 @@ export default class ChannelHeader extends React.Component {
                         </a>
                     </li>
                 );
+            }
 
+            if (ChannelUtils.showDeleteOption(channel, isAdmin, isSystemAdmin, isChannelAdmin)) {
                 if (!ChannelStore.isDefault(channel)) {
                     dropdownContents.push(deleteOption);
                 }
@@ -646,7 +660,7 @@ export default class ChannelHeader extends React.Component {
 
         let headerText;
         if (this.state.enableFormatting) {
-            headerText = TextFormatting.formatText(channel.header, {singleline: true, mentionHighlight: false, siteURL: Utils.getSiteURL()});
+            headerText = TextFormatting.formatText(channel.header, {singleline: true, mentionHighlight: false, siteURL: getSiteURL()});
         } else {
             headerText = channel.header;
         }
@@ -681,13 +695,12 @@ export default class ChannelHeader extends React.Component {
         );
 
         let channelMembersModal;
-        if (this.state.showMembersModal) {
+        if (this.state.showMembersModal && channel.name !== Constants.DEFAULT_CHANNEL) {
             channelMembersModal = (
                 <ChannelMembersModal
                     onModalDismissed={() => this.setState({showMembersModal: false})}
                     showInviteModal={() => this.refs.channelInviteModalButton.show()}
                     channel={channel}
-                    isAdmin={isAdmin}
                 />
             );
         }
@@ -749,12 +762,17 @@ export default class ChannelHeader extends React.Component {
                                     </OverlayTrigger>
                                 </div>
                             </th>
-                            <th>
+                            <th className='header-list__members'>
                                 {popoverListMembers}
                             </th>
-                            <th className='search-bar__container'><NavbarSearchBox/></th>
+                            <th className='search-bar__container'>
+                                <NavbarSearchBox
+                                    showMentionFlagBtns={false}
+                                    isFocus={Utils.isMobile()}
+                                />
+                            </th>
                             <th>
-                                <div className='dropdown channel-header__links'>
+                                <div className='dropdown channel-header__links search-btns'>
                                     <OverlayTrigger
                                         delayShow={Constants.OVERLAY_TIME_DELAY}
                                         placement='bottom'
@@ -771,7 +789,7 @@ export default class ChannelHeader extends React.Component {
                                 </div>
                             </th>
                             <th>
-                                <div className='dropdown channel-header__links'>
+                                <div className='dropdown channel-header__links search-btns'>
                                     <OverlayTrigger
                                         delayShow={Constants.OVERLAY_TIME_DELAY}
                                         placement='bottom'

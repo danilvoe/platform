@@ -2,19 +2,16 @@
 // See License.txt for license information.
 
 import * as Utils from 'utils/utils.jsx';
-import Client from 'client/web_client.jsx';
 import TeamStore from 'stores/team_store.jsx';
 import UserStore from 'stores/user_store.jsx';
+import {cleanUpUrlable} from 'utils/url.jsx';
 
 import NewChannelModal from './new_channel_modal.jsx';
 import ChangeURLModal from './change_url_modal.jsx';
 
 import {intlShape, injectIntl, defineMessages, FormattedMessage} from 'react-intl';
+import {createChannel} from 'actions/channel_actions.jsx';
 import {browserHistory} from 'react-router/es6';
-
-import AppDispatcher from '../dispatcher/app_dispatcher.jsx';
-import Constants from 'utils/constants.jsx';
-const ActionTypes = Constants.ActionTypes;
 
 const SHOW_NEW_CHANNEL = 1;
 const SHOW_EDIT_URL = 2;
@@ -106,25 +103,15 @@ class NewChannelFlow extends React.Component {
             header: this.state.channelHeader,
             type: this.state.channelType
         };
-        Client.createChannel(
+
+        createChannel(
             channel,
             (data) => {
-                Client.getChannel(
-                    data.id,
-                    (data2) => {
-                        AppDispatcher.handleServerAction({
-                            type: ActionTypes.RECEIVED_CHANNEL,
-                            channel: data2.channel,
-                            member: data2.member
-                        });
+                this.doOnModalExited = () => {
+                    browserHistory.push(TeamStore.getCurrentTeamRelativeUrl() + '/channels/' + data.channel.name);
+                };
 
-                        this.doOnModalExited = () => {
-                            browserHistory.push(TeamStore.getCurrentTeamRelativeUrl() + '/channels/' + data2.channel.name);
-                        };
-
-                        this.props.onModalDismissed();
-                    }
-                );
+                this.props.onModalDismissed();
             },
             (err) => {
                 if (err.id === 'model.channel.is_valid.2_or_more.app_error') {
@@ -179,7 +166,7 @@ class NewChannelFlow extends React.Component {
             channelHeader: data.header
         });
         if (!this.state.nameModified) {
-            this.setState({channelName: Utils.cleanUpUrlable(data.displayName.trim())});
+            this.setState({channelName: cleanUpUrlable(data.displayName.trim())});
         }
     }
     render() {

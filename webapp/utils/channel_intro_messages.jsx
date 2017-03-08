@@ -12,6 +12,7 @@ import TeamStore from 'stores/team_store.jsx';
 import Constants from 'utils/constants.jsx';
 import * as GlobalActions from 'actions/global_actions.jsx';
 import Client from 'client/web_client.jsx';
+import ProfilePicture from 'components/profile_picture.jsx';
 
 import React from 'react';
 import {FormattedMessage, FormattedHTMLMessage, FormattedDate} from 'react-intl';
@@ -22,8 +23,10 @@ export function createChannelIntroMessage(channel, fullWidthIntro) {
         centeredIntro = 'channel-intro--centered';
     }
 
-    if (channel.type === 'D') {
+    if (channel.type === Constants.DM_CHANNEL) {
         return createDMIntroMessage(channel, centeredIntro);
+    } else if (channel.type === Constants.GM_CHANNEL) {
+        return createGMIntroMessage(channel, centeredIntro);
     } else if (ChannelStore.isDefault(channel)) {
         return createDefaultIntroMessage(channel, centeredIntro);
     } else if (channel.name === Constants.OFFTOPIC_CHANNEL) {
@@ -32,6 +35,65 @@ export function createChannelIntroMessage(channel, fullWidthIntro) {
         return createStandardIntroMessage(channel, centeredIntro);
     }
     return null;
+}
+
+export function createGMIntroMessage(channel, centeredIntro) {
+    const profiles = UserStore.getProfileListInChannel(channel.id, true);
+
+    if (profiles.length > 0) {
+        const pictures = [];
+        let names = '';
+        for (let i = 0; i < profiles.length; i++) {
+            const profile = profiles[i];
+
+            pictures.push(
+                <ProfilePicture
+                    key={'introprofilepicture' + profile.id}
+                    src={Client.getUsersRoute() + '/' + profile.id + '/image?time=' + profile.last_picture_update}
+                    width='50'
+                    height='50'
+                    user={profile}
+                />
+            );
+
+            if (i === profiles.length - 1) {
+                names += Utils.displayUsernameForUser(profile);
+            } else if (i === profiles.length - 2) {
+                names += Utils.displayUsernameForUser(profile) + ' and ';
+            } else {
+                names += Utils.displayUsernameForUser(profile) + ', ';
+            }
+        }
+
+        return (
+            <div className={'channel-intro ' + centeredIntro}>
+                <div className='post-profile-img__container channel-intro-img'>
+                    {pictures}
+                </div>
+                <p className='channel-intro-text'>
+                    <FormattedHTMLMessage
+                        id='intro_messages.GM'
+                        defaultMessage='This is the start of your group message history with {names}.<br />Messages and files shared here are not shown to people outside this area.'
+                        values={{
+                            names
+                        }}
+                    />
+                </p>
+                {createSetHeaderButton(channel)}
+            </div>
+        );
+    }
+
+    return (
+        <div className={'channel-intro ' + centeredIntro}>
+            <p className='channel-intro-text'>
+                <FormattedMessage
+                    id='intro_messages.group_message'
+                    defaultMessage='This is the start of your group message history with these teammates. Messages and files shared here are not shown to people outside this area.'
+                />
+            </p>
+        </div>
+    );
 }
 
 export function createDMIntroMessage(channel, centeredIntro) {
@@ -46,18 +108,18 @@ export function createDMIntroMessage(channel, centeredIntro) {
         return (
             <div className={'channel-intro ' + centeredIntro}>
                 <div className='post-profile-img__container channel-intro-img'>
-                    <img
-                        className='post-profile-img'
-                        src={Client.getUsersRoute() + '/' + teammate.id + '/image?time=' + teammate.update_at}
-                        height='50'
+                    <ProfilePicture
+                        src={Client.getUsersRoute() + '/' + teammate.id + '/image?time=' + teammate.last_picture_update}
                         width='50'
+                        height='50'
+                        user={teammate}
                     />
                 </div>
                 <div className='channel-intro-profile'>
                     <strong>
                         <UserProfile
                             user={teammate}
-                            disablePopover={true}
+                            disablePopover={false}
                         />
                     </strong>
                 </div>

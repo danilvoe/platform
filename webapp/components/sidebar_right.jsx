@@ -12,6 +12,7 @@ import PreferenceStore from 'stores/preference_store.jsx';
 import WebrtcStore from 'stores/webrtc_store.jsx';
 
 import {getFlaggedPosts} from 'actions/post_actions.jsx';
+import {trackEvent} from 'actions/diagnostics_actions.jsx';
 
 import * as Utils from 'utils/utils.jsx';
 import Constants from 'utils/constants.jsx';
@@ -71,8 +72,18 @@ export default class SidebarRight extends React.Component {
         const isOpen = this.state.searchVisible || this.state.postRightVisible;
         const willOpen = nextState.searchVisible || nextState.postRightVisible;
 
+        if (!isOpen && willOpen) {
+            trackEvent('ui', 'ui_rhs_opened');
+        }
+
         if (isOpen !== willOpen) {
             PostStore.jumpPostsViewSidebarOpen();
+        }
+
+        if (!isOpen && willOpen) {
+            this.setState({
+                expanded: false
+            });
         }
     }
 
@@ -82,6 +93,7 @@ export default class SidebarRight extends React.Component {
         $('.app__body .inner-wrap').removeClass('.move--right');
         $('.app__body .inner-wrap').addClass('move--left');
         $('.app__body .sidebar--left').removeClass('move--right');
+        $('.multi-teams .team-sidebar').removeClass('move--right');
         $('.app__body .sidebar--right').addClass('move--left');
 
         //$('.sidebar--right').prepend('<div class="sidebar__overlay"></div>');
@@ -188,6 +200,10 @@ export default class SidebarRight extends React.Component {
                     shrink={this.onShrink}
                 />
             );
+        }
+
+        if (!content) {
+            expandedClass = '';
         }
 
         return (

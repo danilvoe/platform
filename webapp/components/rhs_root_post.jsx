@@ -20,11 +20,13 @@ import * as Utils from 'utils/utils.jsx';
 import * as PostUtils from 'utils/post_utils.jsx';
 
 import Constants from 'utils/constants.jsx';
+import DelayedAction from 'utils/delayed_action.jsx';
 import {Tooltip, OverlayTrigger} from 'react-bootstrap';
 
 import {FormattedMessage} from 'react-intl';
 
 import React from 'react';
+import {Link} from 'react-router/es6';
 
 export default class RhsRootPost extends React.Component {
     constructor(props) {
@@ -34,7 +36,27 @@ export default class RhsRootPost extends React.Component {
         this.flagPost = this.flagPost.bind(this);
         this.unflagPost = this.unflagPost.bind(this);
 
-        this.state = {};
+        this.canEdit = false;
+        this.canDelete = false;
+        this.editDisableAction = new DelayedAction(this.handleEditDisable);
+
+        this.state = {
+            currentTeamDisplayName: TeamStore.getCurrent().name,
+            width: '',
+            height: ''
+        };
+    }
+
+    componentDidMount() {
+        window.addEventListener('resize', () => {
+            Utils.updateWindowDimensions(this);
+        });
+    }
+
+    componentWillUnmount() {
+        window.removeEventListener('resize', () => {
+            Utils.updateWindowDimensions(this);
+        });
     }
 
     handlePermalink(e) {
@@ -42,8 +64,16 @@ export default class RhsRootPost extends React.Component {
         GlobalActions.showGetPostLinkModal(this.props.post);
     }
 
+    handleEditDisable() {
+        this.canEdit = false;
+    }
+
     shouldComponentUpdate(nextProps) {
         if (nextProps.status !== this.props.status) {
+            return true;
+        }
+
+        if (nextProps.isBusy !== this.props.isBusy) {
             return true;
         }
 
@@ -88,16 +118,41 @@ export default class RhsRootPost extends React.Component {
         unflagPost(this.props.post.id);
     }
 
+    timeTag(post, timeOptions) {
+        return (
+            <time
+                className='post__time'
+                dateTime={Utils.getDateForUnixTicks(post.create_at).toISOString()}
+            >
+                {Utils.getDateForUnixTicks(post.create_at).toLocaleString('en', timeOptions)}
+            </time>
+        );
+    }
+
+    renderTimeTag(post, timeOptions) {
+        return Utils.isMobile() ?
+            this.timeTag(post, timeOptions) :
+            (
+                <Link
+                    to={`/${this.state.currentTeamDisplayName}/pl/${post.id}`}
+                    target='_blank'
+                    className='post__permalink'
+                >
+                    {this.timeTag(post, timeOptions)}
+                </Link>
+            );
+    }
+
     render() {
         const post = this.props.post;
         const user = this.props.user;
         const mattermostLogo = Constants.MATTERMOST_ICON_SVG;
-        var isOwner = this.props.currentUser.id === post.user_id;
-        var isAdmin = TeamStore.isTeamAdminForCurrentTeam() || UserStore.isSystemAdminForCurrentUser();
-        const isSystemMessage = post.type && post.type.startsWith(Constants.SYSTEM_MESSAGE_PREFIX);
-        var timestamp = user ? user.update_at : 0;
+        var timestamp = user ? user.last_picture_update : 0;
         var channel = ChannelStore.get(post.channel_id);
         const flagIcon = Constants.FLAG_ICON_SVG;
+
+        this.canDelete = PostUtils.canDeletePost(post);
+        this.canEdit = PostUtils.canEditPost(post, this.editDisableAction);
 
         var type = 'Post';
         if (post.root_id.length > 0) {
@@ -185,11 +240,32 @@ export default class RhsRootPost extends React.Component {
             </li>
         );
 
-        if (isOwner && !isSystemMessage) {
+        if (this.canDelete) {
+            dropdownContents.push(
+                <li
+                    key='rhs-root-delete'
+                    role='presentation'
+                >
+                    <a
+                        href='#'
+                        role='menuitem'
+                        onClick={() => GlobalActions.showDeletePostModal(post, this.props.commentCount)}
+                    >
+                        <FormattedMessage
+                            id='rhs_root.del'
+                            defaultMessage='Delete'
+                        />
+                    </a>
+                </li>
+            );
+        }
+
+        if (this.canEdit) {
             dropdownContents.push(
                 <li
                     key='rhs-root-edit'
                     role='presentation'
+                    className={this.canEdit ? '' : 'hide'}
                 >
                     <a
                         href='#'
@@ -205,26 +281,6 @@ export default class RhsRootPost extends React.Component {
                         <FormattedMessage
                             id='rhs_root.edit'
                             defaultMessage='Edit'
-                        />
-                    </a>
-                </li>
-            );
-        }
-
-        if (isOwner || isAdmin) {
-            dropdownContents.push(
-                <li
-                    key='rhs-root-delete'
-                    role='presentation'
-                >
-                    <a
-                        href='#'
-                        role='menuitem'
-                        onClick={() => GlobalActions.showDeletePostModal(post, this.props.commentCount)}
-                    >
-                        <FormattedMessage
-                            id='rhs_root.del'
-                            defaultMessage='Delete'
                         />
                     </a>
                 </li>
@@ -248,7 +304,13 @@ export default class RhsRootPost extends React.Component {
             );
         }
 
-        let userProfile = <UserProfile user={user}/>;
+        let userProfile = (
+            <UserProfile
+                user={user}
+                status={this.props.status}
+                isBusy={this.props.isBusy}
+            />
+        );
         let botIndicator;
 
         if (post.props && post.props.from_webhook) {
@@ -260,6 +322,13 @@ export default class RhsRootPost extends React.Component {
                         disablePopover={true}
                     />
                 );
+            } else {
+                userProfile = (
+                    <UserProfile
+                        user={user}
+                        disablePopover={true}
+                    />
+                );
             }
 
             botIndicator = <li className='col col__name bot-indicator'>{'BOT'}</li>;
@@ -267,22 +336,43 @@ export default class RhsRootPost extends React.Component {
             userProfile = (
                 <UserProfile
                     user={{}}
-                    overwriteName={Constants.SYSTEM_MESSAGE_PROFILE_NAME}
+                    overwriteName={
+                        <FormattedMessage
+                            id='post_info.system'
+                            defaultMessage='System'
+                        />
+                    }
                     overwriteImage={Constants.SYSTEM_MESSAGE_PROFILE_IMAGE}
                     disablePopover={true}
                 />
             );
         }
 
+        let status = this.props.status;
+        if (post.props && post.props.from_webhook === 'true') {
+            status = null;
+        }
+
         let profilePic = (
             <ProfilePicture
                 src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
-                status={this.props.status}
+                status={status}
                 width='36'
                 height='36'
                 user={this.props.user}
+                isBusy={this.props.isBusy}
             />
         );
+
+        if (post.props && post.props.from_webhook) {
+            profilePic = (
+                <ProfilePicture
+                    src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
+                    width='36'
+                    height='36'
+                />
+            );
+        }
 
         if (PostUtils.isSystemMessage(post)) {
             profilePic = (
@@ -294,20 +384,33 @@ export default class RhsRootPost extends React.Component {
         }
 
         let compactClass = '';
+        let postClass = '';
         if (this.props.compactDisplay) {
             compactClass = 'post--compact';
 
-            profilePic = (
-                <ProfilePicture
-                    src=''
-                    status={this.props.status}
-                    user={this.props.user}
-                />
-            );
+            if (post.props && post.props.from_webhook) {
+                profilePic = (
+                    <ProfilePicture
+                        src=''
+                    />
+                );
+            } else {
+                profilePic = (
+                    <ProfilePicture
+                        src=''
+                        status={status}
+                        user={this.props.user}
+                        isBusy={this.props.isBusy}
+                    />
+                );
+            }
+        }
+
+        if (PostUtils.isEdited(this.props.post)) {
+            postClass += ' post--edited';
         }
 
         const profilePicContainer = (<div className='post__img'>{profilePic}</div>);
-        const messageWrapper = <PostMessageContainer post={post}/>;
 
         let flag;
         let flagFunc;
@@ -366,9 +469,7 @@ export default class RhsRootPost extends React.Component {
                             <li className='col__name'>{userProfile}</li>
                             {botIndicator}
                             <li className='col'>
-                                <time className='post__time'>
-                                    {Utils.getDateForUnixTicks(post.create_at).toLocaleString('en', timeOptions)}
-                                </time>
+                                {this.renderTimeTag(post, timeOptions)}
                                 <OverlayTrigger
                                     key={'rootpostflagtooltipkey' + flagVisible}
                                     delayShow={Constants.OVERLAY_TIME_DELAY}
@@ -389,11 +490,13 @@ export default class RhsRootPost extends React.Component {
                             </li>
                         </ul>
                         <div className='post__body'>
-                            <PostBodyAdditionalContent
-                                post={post}
-                                message={messageWrapper}
-                                previewCollapsed={this.props.previewCollapsed}
-                            />
+                            <div className={postClass}>
+                                <PostBodyAdditionalContent
+                                    post={post}
+                                    message={<PostMessageContainer post={post}/>}
+                                    previewCollapsed={this.props.previewCollapsed}
+                                />
+                            </div>
                             {fileAttachment}
                             <ReactionListContainer
                                 post={post}
@@ -419,5 +522,6 @@ RhsRootPost.propTypes = {
     useMilitaryTime: React.PropTypes.bool.isRequired,
     isFlagged: React.PropTypes.bool,
     status: React.PropTypes.string,
-    previewCollapsed: React.PropTypes.string
+    previewCollapsed: React.PropTypes.string,
+    isBusy: React.PropTypes.bool
 };

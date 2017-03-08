@@ -12,6 +12,8 @@ import {getTeamStats} from 'utils/async_client.jsx';
 
 import Constants from 'utils/constants.jsx';
 
+import * as UserAgent from 'utils/user_agent.jsx';
+
 import React from 'react';
 
 const USERS_PER_PAGE = 50;
@@ -21,9 +23,12 @@ export default class MemberListTeam extends React.Component {
         super(props);
 
         this.onChange = this.onChange.bind(this);
+        this.onTeamChange = this.onTeamChange.bind(this);
         this.onStatsChange = this.onStatsChange.bind(this);
         this.search = this.search.bind(this);
         this.loadComplete = this.loadComplete.bind(this);
+
+        this.searchTimeoutId = 0;
 
         const stats = TeamStore.getCurrentStats();
 
@@ -40,7 +45,7 @@ export default class MemberListTeam extends React.Component {
     componentDidMount() {
         UserStore.addInTeamChangeListener(this.onChange);
         UserStore.addStatusesChangeListener(this.onChange);
-        TeamStore.addChangeListener(this.onChange.bind(null, true));
+        TeamStore.addChangeListener(this.onTeamChange);
         TeamStore.addStatsChangeListener(this.onStatsChange);
 
         loadProfilesAndTeamMembers(0, Constants.PROFILE_CHUNK_SIZE, TeamStore.getCurrentId(), this.loadComplete);
@@ -50,12 +55,16 @@ export default class MemberListTeam extends React.Component {
     componentWillUnmount() {
         UserStore.removeInTeamChangeListener(this.onChange);
         UserStore.removeStatusesChangeListener(this.onChange);
-        TeamStore.removeChangeListener(this.onChange);
+        TeamStore.removeChangeListener(this.onTeamChange);
         TeamStore.removeStatsChangeListener(this.onStatsChange);
     }
 
     loadComplete() {
         this.setState({loading: false});
+    }
+
+    onTeamChange() {
+        this.onChange(true);
     }
 
     onChange(force) {
@@ -84,15 +93,27 @@ export default class MemberListTeam extends React.Component {
             return;
         }
 
-        searchUsers(
-            term,
-            TeamStore.getCurrentId(),
-            {},
-            (users) => {
-                this.setState({loading: true, search: true, users, term, teamMembers: Object.assign([], TeamStore.getMembersInTeam())});
-                loadTeamMembersForProfilesList(users, TeamStore.getCurrentId(), this.loadComplete);
-            }
+        clearTimeout(this.searchTimeoutId);
+
+        const searchTimeoutId = setTimeout(
+            () => {
+                searchUsers(
+                    term,
+                    TeamStore.getCurrentId(),
+                    {},
+                    (users) => {
+                        if (searchTimeoutId !== this.searchTimeoutId) {
+                            return;
+                        }
+                        this.setState({loading: true, search: true, users, term, teamMembers: Object.assign([], TeamStore.getMembersInTeam())});
+                        loadTeamMembersForProfilesList(users, TeamStore.getCurrentId(), this.loadComplete);
+                    }
+                );
+            },
+            Constants.SEARCH_TIMEOUT_MILLISECONDS
         );
+
+        this.searchTimeoutId = searchTimeoutId;
     }
 
     render() {
@@ -132,6 +153,7 @@ export default class MemberListTeam extends React.Component {
                 search={this.search}
                 actions={teamMembersDropdown}
                 actionUserProps={actionUserProps}
+                focusOnMount={!UserAgent.isMobile()}
             />
         );
     }

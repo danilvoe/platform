@@ -6,6 +6,7 @@ package api
 import (
 	"time"
 
+	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
 	"github.com/mattermost/platform/store"
 	"github.com/mattermost/platform/utils"
@@ -28,7 +29,7 @@ type TestHelper struct {
 }
 
 func SetupEnterprise() *TestHelper {
-	if Srv == nil {
+	if app.Srv == nil {
 		utils.TranslationsPreInit()
 		utils.LoadConfig("config.json")
 		utils.InitTranslations(utils.Cfg.LocalizationSettings)
@@ -36,12 +37,14 @@ func SetupEnterprise() *TestHelper {
 		*utils.Cfg.RateLimitSettings.Enable = false
 		utils.DisableDebugLogForTest()
 		utils.License.Features.SetDefaults()
-		NewServer()
-		StartServer()
+		app.NewServer()
+		app.InitStores()
+		InitRouter()
+		app.StartServer()
 		utils.InitHTML()
 		InitApi()
 		utils.EnableDebugLogForTest()
-		Srv.Store.MarkSystemRanUnitTests()
+		app.Srv.Store.MarkSystemRanUnitTests()
 
 		*utils.Cfg.TeamSettings.EnableOpenServer = true
 	}
@@ -50,18 +53,24 @@ func SetupEnterprise() *TestHelper {
 }
 
 func Setup() *TestHelper {
-	if Srv == nil {
+	if app.Srv == nil {
 		utils.TranslationsPreInit()
 		utils.LoadConfig("config.json")
 		utils.InitTranslations(utils.Cfg.LocalizationSettings)
 		utils.Cfg.TeamSettings.MaxUsersPerTeam = 50
 		*utils.Cfg.RateLimitSettings.Enable = false
+		utils.Cfg.EmailSettings.SendEmailNotifications = true
+		utils.Cfg.EmailSettings.SMTPServer = "dockerhost"
+		utils.Cfg.EmailSettings.SMTPPort = "2500"
+		utils.Cfg.EmailSettings.FeedbackEmail = "test@example.com"
 		utils.DisableDebugLogForTest()
-		NewServer()
-		StartServer()
+		app.NewServer()
+		app.InitStores()
+		InitRouter()
+		app.StartServer()
 		InitApi()
 		utils.EnableDebugLogForTest()
-		Srv.Store.MarkSystemRanUnitTests()
+		app.Srv.Store.MarkSystemRanUnitTests()
 
 		*utils.Cfg.TeamSettings.EnableOpenServer = true
 	}
@@ -71,13 +80,14 @@ func Setup() *TestHelper {
 
 func (me *TestHelper) InitBasic() *TestHelper {
 	me.BasicClient = me.CreateClient()
-	me.BasicTeam = me.CreateTeam(me.BasicClient)
 	me.BasicUser = me.CreateUser(me.BasicClient)
+	me.LoginBasic()
+	me.BasicTeam = me.CreateTeam(me.BasicClient)
 	LinkUserToTeam(me.BasicUser, me.BasicTeam)
+	UpdateUserToNonTeamAdmin(me.BasicUser, me.BasicTeam)
 	me.BasicUser2 = me.CreateUser(me.BasicClient)
 	LinkUserToTeam(me.BasicUser2, me.BasicTeam)
 	me.BasicClient.SetTeamId(me.BasicTeam.Id)
-	me.LoginBasic()
 	me.BasicChannel = me.CreateChannel(me.BasicClient, me.BasicTeam)
 	me.BasicPost = me.CreatePost(me.BasicClient, me.BasicChannel)
 
@@ -86,16 +96,13 @@ func (me *TestHelper) InitBasic() *TestHelper {
 
 func (me *TestHelper) InitSystemAdmin() *TestHelper {
 	me.SystemAdminClient = me.CreateClient()
-	me.SystemAdminTeam = me.CreateTeam(me.SystemAdminClient)
 	me.SystemAdminUser = me.CreateUser(me.SystemAdminClient)
-	LinkUserToTeam(me.SystemAdminUser, me.SystemAdminTeam)
-	me.SystemAdminClient.SetTeamId(me.SystemAdminTeam.Id)
-	c := &Context{}
-	c.RequestId = model.NewId()
-	c.IpAddress = "cmd_line"
-	UpdateUserRoles(c, me.SystemAdminUser, model.ROLE_SYSTEM_USER.Id+" "+model.ROLE_SYSTEM_ADMIN.Id)
 	me.SystemAdminUser.Password = "Password1"
 	me.LoginSystemAdmin()
+	me.SystemAdminTeam = me.CreateTeam(me.SystemAdminClient)
+	LinkUserToTeam(me.SystemAdminUser, me.SystemAdminTeam)
+	me.SystemAdminClient.SetTeamId(me.SystemAdminTeam.Id)
+	app.UpdateUserRoles(me.SystemAdminUser.Id, model.ROLE_SYSTEM_USER.Id+" "+model.ROLE_SYSTEM_ADMIN.Id)
 	me.SystemAdminChannel = me.CreateChannel(me.SystemAdminClient, me.SystemAdminTeam)
 
 	return me
@@ -137,7 +144,7 @@ func (me *TestHelper) CreateUser(client *model.Client) *model.User {
 	utils.DisableDebugLogForTest()
 	ruser := client.Must(client.CreateUser(user, "")).Data.(*model.User)
 	ruser.Password = "Password1"
-	store.Must(Srv.Store.User().VerifyEmail(ruser.Id))
+	store.Must(app.Srv.Store.User().VerifyEmail(ruser.Id))
 	utils.EnableDebugLogForTest()
 	return ruser
 }
@@ -145,7 +152,7 @@ func (me *TestHelper) CreateUser(client *model.Client) *model.User {
 func LinkUserToTeam(user *model.User, team *model.Team) {
 	utils.DisableDebugLogForTest()
 
-	err := JoinUserToTeam(team, user)
+	err := app.JoinUserToTeam(team, user)
 	if err != nil {
 		l4g.Error(err.Error())
 		l4g.Close()
@@ -160,13 +167,63 @@ func UpdateUserToTeamAdmin(user *model.User, team *model.Team) {
 	utils.DisableDebugLogForTest()
 
 	tm := &model.TeamMember{TeamId: team.Id, UserId: user.Id, Roles: model.ROLE_TEAM_USER.Id + " " + model.ROLE_TEAM_ADMIN.Id}
-	if tmr := <-Srv.Store.Team().UpdateMember(tm); tmr.Err != nil {
+	if tmr := <-app.Srv.Store.Team().UpdateMember(tm); tmr.Err != nil {
 		utils.EnableDebugLogForTest()
 		l4g.Error(tmr.Err.Error())
 		l4g.Close()
 		time.Sleep(time.Second)
 		panic(tmr.Err)
 	}
+	utils.EnableDebugLogForTest()
+}
+
+func UpdateUserToNonTeamAdmin(user *model.User, team *model.Team) {
+	utils.DisableDebugLogForTest()
+
+	tm := &model.TeamMember{TeamId: team.Id, UserId: user.Id, Roles: model.ROLE_TEAM_USER.Id}
+	if tmr := <-app.Srv.Store.Team().UpdateMember(tm); tmr.Err != nil {
+		utils.EnableDebugLogForTest()
+		l4g.Error(tmr.Err.Error())
+		l4g.Close()
+		time.Sleep(time.Second)
+		panic(tmr.Err)
+	}
+	utils.EnableDebugLogForTest()
+}
+
+func MakeUserChannelAdmin(user *model.User, channel *model.Channel) {
+	utils.DisableDebugLogForTest()
+
+	if cmr := <-app.Srv.Store.Channel().GetMember(channel.Id, user.Id); cmr.Err == nil {
+		cm := cmr.Data.(*model.ChannelMember)
+		cm.Roles = "channel_admin channel_user"
+		if sr := <-app.Srv.Store.Channel().UpdateMember(cm); sr.Err != nil {
+			utils.EnableDebugLogForTest()
+			panic(sr.Err)
+		}
+	} else {
+		utils.EnableDebugLogForTest()
+		panic(cmr.Err)
+	}
+
+	utils.EnableDebugLogForTest()
+}
+
+func MakeUserChannelUser(user *model.User, channel *model.Channel) {
+	utils.DisableDebugLogForTest()
+
+	if cmr := <-app.Srv.Store.Channel().GetMember(channel.Id, user.Id); cmr.Err == nil {
+		cm := cmr.Data.(*model.ChannelMember)
+		cm.Roles = "channel_user"
+		if sr := <-app.Srv.Store.Channel().UpdateMember(cm); sr.Err != nil {
+			utils.EnableDebugLogForTest()
+			panic(sr.Err)
+		}
+	} else {
+		utils.EnableDebugLogForTest()
+		panic(cmr.Err)
+	}
+
 	utils.EnableDebugLogForTest()
 }
 
@@ -227,7 +284,7 @@ func (me *TestHelper) LoginSystemAdmin() {
 }
 
 func TearDown() {
-	if Srv != nil {
-		StopServer()
+	if app.Srv != nil {
+		app.StopServer()
 	}
 }

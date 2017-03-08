@@ -21,17 +21,36 @@ const PreReleaseFeatures = Constants.PRE_RELEASE_FEATURES;
 import React from 'react';
 
 export default class Textbox extends React.Component {
+    static propTypes = {
+        id: React.PropTypes.string.isRequired,
+        channelId: React.PropTypes.string,
+        value: React.PropTypes.string.isRequired,
+        onChange: React.PropTypes.func.isRequired,
+        onKeyPress: React.PropTypes.func.isRequired,
+        createMessage: React.PropTypes.string.isRequired,
+        onKeyDown: React.PropTypes.func,
+        onBlur: React.PropTypes.func,
+        supportsCommands: React.PropTypes.bool.isRequired,
+        handlePostError: React.PropTypes.func,
+        suggestionListStyle: React.PropTypes.string
+    };
+
+    static defaultProps = {
+        supportsCommands: true
+    };
+
     constructor(props) {
         super(props);
 
         this.focus = this.focus.bind(this);
         this.recalculateSize = this.recalculateSize.bind(this);
-        this.onRecievedError = this.onRecievedError.bind(this);
+        this.onReceivedError = this.onReceivedError.bind(this);
         this.handleKeyPress = this.handleKeyPress.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleBlur = this.handleBlur.bind(this);
         this.handleHeightChange = this.handleHeightChange.bind(this);
         this.showPreview = this.showPreview.bind(this);
+        this.handleChange = this.handleChange.bind(this);
 
         this.state = {
             connection: ''
@@ -48,20 +67,48 @@ export default class Textbox extends React.Component {
     }
 
     componentDidMount() {
-        ErrorStore.addChangeListener(this.onRecievedError);
+        ErrorStore.addChangeListener(this.onReceivedError);
+    }
+
+    componentWillMount() {
+        this.checkMessageLength(this.props.value);
     }
 
     componentWillUnmount() {
-        ErrorStore.removeChangeListener(this.onRecievedError);
+        ErrorStore.removeChangeListener(this.onReceivedError);
     }
 
-    onRecievedError() {
+    onReceivedError() {
         const errorCount = ErrorStore.getConnectionErrorCount();
 
         if (errorCount > 1) {
             this.setState({connection: 'bad-connection'});
         } else {
             this.setState({connection: ''});
+        }
+    }
+
+    handleChange(e) {
+        this.checkMessageLength(e.target.value);
+        this.props.onChange(e);
+    }
+
+    checkMessageLength(message) {
+        if (this.props.handlePostError) {
+            if (message.length > Constants.CHARACTER_LIMIT) {
+                const errorMessage = (
+                    <FormattedMessage
+                        id='create_post.error_message'
+                        defaultMessage='Your message is too long. Character count: {length}/{limit}'
+                        values={{
+                            length: message.length,
+                            limit: Constants.CHARACTER_LIMIT
+                        }}
+                    />);
+                this.props.handlePostError(errorMessage);
+            } else {
+                this.props.handlePostError(null);
+            }
         }
     }
 
@@ -86,9 +133,9 @@ export default class Textbox extends React.Component {
 
         // Move over attachment icon to compensate for the scrollbar
         if (height > maxHeight) {
-            wrapper.closest('.post-body__cell').addClass('scroll');
+            wrapper.closest('.post-create').addClass('scroll');
         } else {
-            wrapper.closest('.post-body__cell').removeClass('scroll');
+            wrapper.closest('.post-create').removeClass('scroll');
         }
     }
 
@@ -205,15 +252,15 @@ export default class Textbox extends React.Component {
                     className={`form-control custom-textarea ${this.state.connection}`}
                     type='textarea'
                     spellCheck='true'
-                    maxLength={Constants.MAX_POST_LEN}
                     placeholder={this.props.createMessage}
-                    onChange={this.props.onChange}
+                    onChange={this.handleChange}
                     onKeyPress={this.handleKeyPress}
                     onKeyDown={this.handleKeyDown}
                     onBlur={this.handleBlur}
                     onHeightChange={this.handleHeightChange}
                     style={{visibility: this.state.preview ? 'hidden' : 'visible'}}
                     listComponent={SuggestionList}
+                    listStyle={this.props.suggestionListStyle}
                     providers={this.suggestionProviders}
                     channelId={this.props.channelId}
                     value={this.props.value}
@@ -244,19 +291,3 @@ export default class Textbox extends React.Component {
         );
     }
 }
-
-Textbox.defaultProps = {
-    supportsCommands: true
-};
-
-Textbox.propTypes = {
-    id: React.PropTypes.string.isRequired,
-    channelId: React.PropTypes.string,
-    value: React.PropTypes.string.isRequired,
-    onChange: React.PropTypes.func.isRequired,
-    onKeyPress: React.PropTypes.func.isRequired,
-    createMessage: React.PropTypes.string.isRequired,
-    onKeyDown: React.PropTypes.func,
-    onBlur: React.PropTypes.func,
-    supportsCommands: React.PropTypes.bool.isRequired
-};

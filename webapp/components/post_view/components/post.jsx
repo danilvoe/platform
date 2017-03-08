@@ -150,10 +150,10 @@ export default class Post extends React.Component {
         }
 
         let timestamp = 0;
-        if (!this.props.user || this.props.user.update_at == null) {
-            timestamp = this.props.currentUser.update_at;
+        if (!this.props.user || this.props.user.last_picture_update == null) {
+            timestamp = this.props.currentUser.last_picture_update;
         } else {
-            timestamp = this.props.user.update_at;
+            timestamp = this.props.user.last_picture_update;
         }
 
         let sameUserClass = '';
@@ -184,13 +184,27 @@ export default class Post extends React.Component {
             rootUser = '';
         }
 
+        let status = this.props.status;
+        if (post.props && post.props.from_webhook === 'true') {
+            status = null;
+        }
+
         let profilePic = (
             <ProfilePicture
                 src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
-                status={this.props.status}
+                status={status}
                 user={this.props.user}
+                isBusy={this.props.isBusy}
             />
         );
+
+        if (post.props && post.props.from_webhook) {
+            profilePic = (
+                <ProfilePicture
+                    src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
+                />
+            );
+        }
 
         if (PostUtils.isSystemMessage(post)) {
             profilePic = (
@@ -210,13 +224,23 @@ export default class Post extends React.Component {
         if (this.props.compactDisplay) {
             compactClass = 'post--compact';
 
-            profilePic = (
-                <ProfilePicture
-                    src=''
-                    status={this.props.status}
-                    user={this.props.user}
-                />
-            );
+            if (post.props && post.props.from_webhook) {
+                profilePic = (
+                    <ProfilePicture
+                        src=''
+                        status={status}
+                        isBusy={this.props.isBusy}
+                        user={this.props.user}
+                    />
+                );
+            } else {
+                profilePic = (
+                    <ProfilePicture
+                        src=''
+                        status={status}
+                    />
+                );
+            }
         }
 
         const profilePicContainer = (<div className='post__img'>{profilePic}</div>);
@@ -227,7 +251,11 @@ export default class Post extends React.Component {
         }
 
         return (
-            <div>
+            <div
+                ref={(div) => {
+                    this.domNode = div;
+                }}
+            >
                 <div
                     id={'post_' + post.id}
                     className={'post ' + sameUserClass + ' ' + compactClass + ' ' + rootUser + ' ' + postType + ' ' + currentUserCss + ' ' + shouldHighlightClass + ' ' + systemMessageClass + ' ' + hideControls + ' ' + dropdownOpenedClass}
@@ -262,6 +290,7 @@ export default class Post extends React.Component {
                                 compactDisplay={this.props.compactDisplay}
                                 previewCollapsed={this.props.previewCollapsed}
                                 isCommentMention={this.props.isCommentMention}
+                                childComponentDidUpdateFunction={this.props.childComponentDidUpdateFunction}
                             />
                         </div>
                     </div>
@@ -290,5 +319,6 @@ Post.propTypes = {
     useMilitaryTime: React.PropTypes.bool.isRequired,
     isFlagged: React.PropTypes.bool,
     status: React.PropTypes.string,
-    isBusy: React.PropTypes.bool
+    isBusy: React.PropTypes.bool,
+    childComponentDidUpdateFunction: React.PropTypes.func
 };

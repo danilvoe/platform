@@ -2,6 +2,7 @@
 // See License.txt for license information.
 
 import Suggestion from './suggestion.jsx';
+import Provider from './provider.jsx';
 
 import {autocompleteChannels} from 'actions/channel_actions.jsx';
 
@@ -49,71 +50,84 @@ class ChannelMentionSuggestion extends Suggestion {
     }
 }
 
-export default class ChannelMentionProvider {
+export default class ChannelMentionProvider extends Provider {
     constructor() {
-        this.timeoutId = '';
-    }
+        super();
 
-    componentWillUnmount() {
-        clearTimeout(this.timeoutId);
+        this.lastCompletedWord = '';
     }
 
     handlePretextChanged(suggestionId, pretext) {
-        const captured = (/(^|\s)(~([^~]*))$/i).exec(pretext.toLowerCase());
-        if (captured) {
-            const prefix = captured[3];
+        const captured = (/(^|\s)(~([^~\r\n]*))$/i).exec(pretext.toLowerCase());
 
-            function autocomplete() {
-                autocompleteChannels(
-                    prefix,
-                    (data) => {
-                        const channels = data;
-
-                        // Wrap channels in an outer object to avoid overwriting the 'type' property.
-                        const wrappedChannels = [];
-                        const wrappedMoreChannels = [];
-                        const moreChannels = [];
-                        channels.forEach((item) => {
-                            if (ChannelStore.get(item.id)) {
-                                wrappedChannels.push({
-                                    type: Constants.MENTION_CHANNELS,
-                                    channel: item
-                                });
-                                return;
-                            }
-
-                            wrappedMoreChannels.push({
-                                type: Constants.MENTION_MORE_CHANNELS,
-                                channel: item
-                            });
-
-                            moreChannels.push(item);
-                        });
-
-                        const wrapped = wrappedChannels.concat(wrappedMoreChannels);
-                        const mentions = wrapped.map((item) => '~' + item.channel.name);
-
-                        AppDispatcher.handleServerAction({
-                            type: ActionTypes.RECEIVED_MORE_CHANNELS,
-                            channels: moreChannels
-                        });
-
-                        AppDispatcher.handleServerAction({
-                            type: ActionTypes.SUGGESTION_RECEIVED_SUGGESTIONS,
-                            id: suggestionId,
-                            matchedPretext: captured[2],
-                            terms: mentions,
-                            items: wrapped,
-                            component: ChannelMentionSuggestion
-                        });
-                    }
-                );
-            }
-
-            this.timeoutId = setTimeout(
-                autocomplete.bind(this),
-                Constants.AUTOCOMPLETE_TIMEOUT
-            );
+        if (!captured) {
+            // Not a channel mention
+            return;
         }
+
+        if (this.lastCompletedWord && captured[0].startsWith(this.lastCompletedWord)) {
+            // It appears we're still matching a channel handle that we already completed
+            return;
+        }
+
+        // Clear the last completed word since we've started to match new text
+        this.lastCompletedWord = '';
+
+        const prefix = captured[3];
+
+        this.startNewRequest(prefix);
+
+        autocompleteChannels(
+            prefix,
+            (data) => {
+                if (this.shouldCancelDispatch(prefix)) {
+                    return;
+                }
+
+                const channels = data;
+
+                // Wrap channels in an outer object to avoid overwriting the 'type' property.
+                const wrappedChannels = [];
+                const wrappedMoreChannels = [];
+                const moreChannels = [];
+                channels.forEach((item) => {
+                    if (ChannelStore.get(item.id)) {
+                        wrappedChannels.push({
+                            type: Constants.MENTION_CHANNELS,
+                            channel: item
+                        });
+                        return;
+                    }
+
+                    wrappedMoreChannels.push({
+                        type: Constants.MENTION_MORE_CHANNELS,
+                        channel: item
+                    });
+
+                    moreChannels.push(item);
+                });
+
+                const wrapped = wrappedChannels.concat(wrappedMoreChannels);
+                const mentions = wrapped.map((item) => '~' + item.channel.name);
+
+                AppDispatcher.handleServerAction({
+                    type: ActionTypes.RECEIVED_MORE_CHANNELS,
+                    channels: moreChannels
+                });
+
+                AppDispatcher.handleServerAction({
+                    type: ActionTypes.SUGGESTION_RECEIVED_SUGGESTIONS,
+                    id: suggestionId,
+                    matchedPretext: captured[2],
+                    terms: mentions,
+                    items: wrapped,
+                    component: ChannelMentionSuggestion
+                });
+            }
+        );
+    }
+
+    handleCompleteWord(term) {
+        this.lastCompletedWord = term;
     }
 }

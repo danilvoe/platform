@@ -8,10 +8,9 @@ import DesktopNotificationSettings from './desktop_notification_settings.jsx';
 
 import UserStore from 'stores/user_store.jsx';
 
-import Client from 'client/web_client.jsx';
-import * as AsyncClient from 'utils/async_client.jsx';
 import * as Utils from 'utils/utils.jsx';
 import Constants from 'utils/constants.jsx';
+import {updateUserNotifyProps} from 'actions/user_actions.jsx';
 
 import EmailNotificationSetting from './email_notification_setting.jsx';
 import {FormattedMessage} from 'react-intl';
@@ -52,27 +51,19 @@ function getNotificationsStateFromStores() {
     }
 
     let usernameKey = false;
-    let mentionKey = false;
     let customKeys = '';
     let firstNameKey = false;
     let channelKey = false;
 
     if (user.notify_props) {
         if (user.notify_props.mention_keys) {
-            var keys = user.notify_props.mention_keys.split(',');
+            const keys = user.notify_props.mention_keys.split(',');
 
             if (keys.indexOf(user.username) === -1) {
                 usernameKey = false;
             } else {
                 usernameKey = true;
                 keys.splice(keys.indexOf(user.username), 1);
-            }
-
-            if (keys.indexOf('@' + user.username) === -1) {
-                mentionKey = false;
-            } else {
-                mentionKey = true;
-                keys.splice(keys.indexOf('@' + user.username), 1);
             }
 
             customKeys = keys.join(',');
@@ -95,7 +86,6 @@ function getNotificationsStateFromStores() {
         pushStatus,
         desktopSound: sound,
         usernameKey,
-        mentionKey,
         customKeys,
         customKeysChecked: customKeys.length > 0,
         firstNameKey,
@@ -117,7 +107,6 @@ export default class NotificationsTab extends React.Component {
         this.onListenerChange = this.onListenerChange.bind(this);
         this.handleEmailRadio = this.handleEmailRadio.bind(this);
         this.updateUsernameKey = this.updateUsernameKey.bind(this);
-        this.updateMentionKey = this.updateMentionKey.bind(this);
         this.updateFirstNameKey = this.updateFirstNameKey.bind(this);
         this.updateChannelKey = this.updateChannelKey.bind(this);
         this.updateCustomMentionKeys = this.updateCustomMentionKeys.bind(this);
@@ -129,7 +118,7 @@ export default class NotificationsTab extends React.Component {
     }
 
     handleSubmit() {
-        var data = {};
+        const data = {};
         data.user_id = this.props.user.id;
         data.email = this.state.enableEmail;
         data.desktop_sound = this.state.desktopSound;
@@ -139,15 +128,12 @@ export default class NotificationsTab extends React.Component {
         data.push_status = this.state.pushStatus;
         data.comments = this.state.notifyCommentsLevel;
 
-        var mentionKeys = [];
+        const mentionKeys = [];
         if (this.state.usernameKey) {
             mentionKeys.push(this.props.user.username);
         }
-        if (this.state.mentionKey) {
-            mentionKeys.push('@' + this.props.user.username);
-        }
 
-        var stringKeys = mentionKeys.join(',');
+        let stringKeys = mentionKeys.join(',');
         if (this.state.customKeys.length > 0 && this.state.customKeysChecked) {
             stringKeys += ',' + this.state.customKeys;
         }
@@ -156,10 +142,10 @@ export default class NotificationsTab extends React.Component {
         data.first_name = this.state.firstNameKey.toString();
         data.channel = this.state.channelKey.toString();
 
-        Client.updateUserNotifyProps(data,
+        updateUserNotifyProps(
+            data,
             () => {
                 this.props.updateSection('');
-                AsyncClient.getMe();
                 $('.settings-modal .modal-body').scrollTop(0).perfectScrollbar('update');
             },
             (err) => {
@@ -229,10 +215,6 @@ export default class NotificationsTab extends React.Component {
         this.setState({usernameKey: val});
     }
 
-    updateMentionKey(val) {
-        this.setState({mentionKey: val});
-    }
-
     updateFirstNameKey(val) {
         this.setState({firstNameKey: val});
     }
@@ -242,10 +224,10 @@ export default class NotificationsTab extends React.Component {
     }
 
     updateCustomMentionKeys() {
-        var checked = this.refs.customcheck.checked;
+        const checked = this.refs.customcheck.checked;
 
         if (checked) {
-            var text = this.refs.custommentions.value;
+            const text = this.refs.custommentions.value;
 
             // remove all spaces and split string into individual keys
             this.setState({customKeys: text.replace(/ /g, ''), customKeysChecked: true});
@@ -524,8 +506,8 @@ export default class NotificationsTab extends React.Component {
         const serverError = this.state.serverError;
         const user = this.props.user;
 
-        var keysSection;
-        var handleUpdateKeysSection;
+        let keysSection;
+        let handleUpdateKeysSection;
         if (this.props.activeSection === 'keys') {
             const inputs = [];
 
@@ -570,30 +552,6 @@ export default class NotificationsTab extends React.Component {
                             <FormattedMessage
                                 id='user.settings.notifications.sensitiveUsername'
                                 defaultMessage='Your non-case sensitive username "{username}"'
-                                values={{
-                                    username: user.username
-                                }}
-                            />
-                        </label>
-                    </div>
-                </div>
-            );
-
-            const handleUpdateMentionKey = (e) => {
-                this.updateMentionKey(e.target.checked);
-            };
-            inputs.push(
-                <div key='userNotificationMentionOption'>
-                    <div className='checkbox'>
-                        <label>
-                            <input
-                                type='checkbox'
-                                checked={this.state.mentionKey}
-                                onChange={handleUpdateMentionKey}
-                            />
-                            <FormattedMessage
-                                id='user.settings.notifications.usernameMention'
-                                defaultMessage='Your username mentioned "@{username}"'
                                 values={{
                                     username: user.username
                                 }}
@@ -650,6 +608,18 @@ export default class NotificationsTab extends React.Component {
                 </div>
             );
 
+            const extraInfo = (
+                <span>
+                    <FormattedMessage
+                        id='user.settings.notifications.mentionsInfo'
+                        defaultMessage='Mentions trigger when someone sends a message that includes your username (@{username}) or any of the options selected above.'
+                        values={{
+                            username: user.username
+                        }}
+                    />
+                </span>
+            );
+
             keysSection = (
                 <SettingItemMax
                     title={Utils.localizeMessage('user.settings.notifications.wordsTrigger', 'Words that trigger mentions')}
@@ -657,18 +627,16 @@ export default class NotificationsTab extends React.Component {
                     submit={this.handleSubmit}
                     server_error={serverError}
                     updateSection={this.handleCancel}
+                    extraInfo={extraInfo}
                 />
             );
         } else {
-            let keys = [];
+            let keys = ['@' + user.username];
             if (this.state.firstNameKey) {
                 keys.push(user.first_name);
             }
             if (this.state.usernameKey) {
                 keys.push(user.username);
-            }
-            if (this.state.mentionKey) {
-                keys.push('@' + user.username);
             }
 
             if (this.state.channelKey) {
@@ -680,7 +648,7 @@ export default class NotificationsTab extends React.Component {
             }
 
             let describe = '';
-            for (var i = 0; i < keys.length; i++) {
+            for (let i = 0; i < keys.length; i++) {
                 if (keys[i] !== '') {
                     describe += '"' + keys[i] + '", ';
                 }
@@ -710,10 +678,10 @@ export default class NotificationsTab extends React.Component {
             );
         }
 
-        var commentsSection;
-        var handleUpdateCommentsSection;
+        let commentsSection;
+        let handleUpdateCommentsSection;
         if (this.props.activeSection === 'comments') {
-            var commentsActive = [false, false, false];
+            const commentsActive = [false, false, false];
             if (this.state.notifyCommentsLevel === 'never') {
                 commentsActive[2] = true;
             } else if (this.state.notifyCommentsLevel === 'root') {

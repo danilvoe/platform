@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	VERSION_3_7_0 = "3.7.0"
 	VERSION_3_6_0 = "3.6.0"
 	VERSION_3_5_0 = "3.5.0"
 	VERSION_3_4_0 = "3.4.0"
@@ -39,6 +40,7 @@ func UpgradeDatabase(sqlStore *SqlStore) {
 	UpgradeDatabaseToVersion34(sqlStore)
 	UpgradeDatabaseToVersion35(sqlStore)
 	UpgradeDatabaseToVersion36(sqlStore)
+	UpgradeDatabaseToVersion37(sqlStore)
 
 	// If the SchemaVersion is empty this this is the first time it has ran
 	// so lets set it to the current version.
@@ -214,18 +216,27 @@ func UpgradeDatabaseToVersion35(sqlStore *SqlStore) {
 }
 
 func UpgradeDatabaseToVersion36(sqlStore *SqlStore) {
-	//if shouldPerformUpgrade(sqlStore, VERSION_3_5_0, VERSION_3_6_0) {
+	if shouldPerformUpgrade(sqlStore, VERSION_3_5_0, VERSION_3_6_0) {
+		sqlStore.CreateColumnIfNotExists("Posts", "HasReactions", "tinyint", "boolean", "0")
 
-	sqlStore.CreateColumnIfNotExists("Posts", "HasReactions", "tinyint", "boolean", "0")
+		// Create Team Description column
+		sqlStore.CreateColumnIfNotExists("Teams", "Description", "varchar(255)", "varchar(255)", "")
 
-	// Create Team Description column
-	sqlStore.CreateColumnIfNotExists("Teams", "Description", "varchar(255)", "varchar(255)", "")
+		// Add a Position column to users.
+		sqlStore.CreateColumnIfNotExists("Users", "Position", "varchar(64)", "varchar(64)", "")
 
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	// TODO FIXME UNCOMMENT WHEN WE DO RELEASE
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	//sqlStore.Session().RemoveAllSessions()
+		// Remove ActiveChannel column from Status
+		sqlStore.RemoveColumnIfExists("Status", "ActiveChannel")
 
-	//saveSchemaVersion(sqlStore, VERSION_3_6_0)
-	//}
+		saveSchemaVersion(sqlStore, VERSION_3_6_0)
+	}
+}
+
+func UpgradeDatabaseToVersion37(sqlStore *SqlStore) {
+	if shouldPerformUpgrade(sqlStore, VERSION_3_6_0, VERSION_3_7_0) {
+		// Add EditAt column to Posts
+		sqlStore.CreateColumnIfNotExists("Posts", "EditAt", " bigint", " bigint", "0")
+
+		saveSchemaVersion(sqlStore, VERSION_3_7_0)
+	}
 }

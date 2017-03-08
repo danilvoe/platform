@@ -132,6 +132,30 @@ func TestTeamStoreGetByName(t *testing.T) {
 	}
 }
 
+func TestTeamStoreSearchByName(t *testing.T) {
+	Setup()
+
+	o1 := model.Team{}
+	o1.DisplayName = "DisplayName"
+	o1.Name = "zzz" + model.NewId() + "b"
+	o1.Email = model.NewId() + "@nowhere.com"
+	o1.Type = model.TEAM_OPEN
+
+	if err := (<-store.Team().Save(&o1)).Err; err != nil {
+		t.Fatal(err)
+	}
+
+	if r1 := <-store.Team().SearchByName(o1.Name); r1.Err != nil {
+		t.Fatal(r1.Err)
+	} else {
+		if r1.Data.([]*model.Team)[0].ToJson() != o1.ToJson() {
+			t.Log(r1.Data.([]*model.Team)[0].ToJson())
+			t.Log(o1.ToJson())
+			t.Fatal("invalid returned team")
+		}
+	}
+}
+
 func TestTeamStoreGetByIniviteId(t *testing.T) {
 	Setup()
 
@@ -415,7 +439,7 @@ func TestGetTeamMember(t *testing.T) {
 	if r := <-store.Team().GetMember(m1.TeamId, m1.UserId); r.Err != nil {
 		t.Fatal(r.Err)
 	} else {
-		rm1 := r.Data.(model.TeamMember)
+		rm1 := r.Data.(*model.TeamMember)
 
 		if rm1.TeamId != m1.TeamId {
 			t.Fatal("bad team id")
@@ -527,5 +551,65 @@ func TestTeamStoreMemberCount(t *testing.T) {
 		if result.Data.(int64) != 1 {
 			t.Fatal("wrong count")
 		}
+	}
+}
+
+func TestMyTeamMembersUnread(t *testing.T) {
+	Setup()
+
+	teamId1 := model.NewId()
+	teamId2 := model.NewId()
+
+	uid := model.NewId()
+	m1 := &model.TeamMember{TeamId: teamId1, UserId: uid}
+	m2 := &model.TeamMember{TeamId: teamId2, UserId: uid}
+	Must(store.Team().SaveMember(m1))
+	Must(store.Team().SaveMember(m2))
+
+	c1 := &model.Channel{TeamId: m1.TeamId, Name: model.NewId(), DisplayName: "Town Square", Type: model.CHANNEL_OPEN}
+	Must(store.Channel().Save(c1))
+	c2 := &model.Channel{TeamId: m2.TeamId, Name: model.NewId(), DisplayName: "Town Square", Type: model.CHANNEL_OPEN}
+	Must(store.Channel().Save(c2))
+
+	cm1 := &model.ChannelMember{ChannelId: c1.Id, UserId: m1.UserId, NotifyProps: model.GetDefaultChannelNotifyProps()}
+	Must(store.Channel().SaveMember(cm1))
+	cm2 := &model.ChannelMember{ChannelId: c2.Id, UserId: m2.UserId, NotifyProps: model.GetDefaultChannelNotifyProps()}
+	Must(store.Channel().SaveMember(cm2))
+
+	if r1 := <-store.Team().GetTeamsUnreadForUser("", uid); r1.Err != nil {
+		t.Fatal(r1.Err)
+	} else {
+		ms := r1.Data.([]*model.ChannelUnread)
+		membersMap := make(map[string]bool)
+		for i := range ms {
+			id := ms[i].TeamId
+			if _, ok := membersMap[id]; !ok {
+				membersMap[id] = true
+			}
+		}
+		if len(membersMap) != 2 {
+			t.Fatal("Should be the unreads for all the teams")
+		}
+	}
+
+	if r2 := <-store.Team().GetTeamsUnreadForUser(teamId1, uid); r2.Err != nil {
+		t.Fatal(r2.Err)
+	} else {
+		ms := r2.Data.([]*model.ChannelUnread)
+		membersMap := make(map[string]bool)
+		for i := range ms {
+			id := ms[i].TeamId
+			if _, ok := membersMap[id]; !ok {
+				membersMap[id] = true
+			}
+		}
+
+		if len(membersMap) != 1 {
+			t.Fatal("Should be the unreads for just one team")
+		}
+	}
+
+	if r1 := <-store.Team().RemoveAllMembersByUser(uid); r1.Err != nil {
+		t.Fatal(r1.Err)
 	}
 }

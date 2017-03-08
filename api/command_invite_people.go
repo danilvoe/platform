@@ -6,6 +6,8 @@ package api
 import (
 	"strings"
 
+	l4g "github.com/alecthomas/log4go"
+	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
 	"github.com/mattermost/platform/utils"
 )
@@ -35,13 +37,10 @@ func (me *InvitePeopleProvider) GetCommand(c *Context) *model.Command {
 	}
 }
 
-func (me *InvitePeopleProvider) DoCommand(c *Context, channelId string, message string) *model.CommandResponse {
+func (me *InvitePeopleProvider) DoCommand(c *Context, args *model.CommandArgs, message string) *model.CommandResponse {
 	if !utils.Cfg.EmailSettings.SendEmailNotifications {
 		return &model.CommandResponse{ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: c.T("api.command.invite_people.email_off")}
 	}
-
-	tchan := Srv.Store.Team().Get(c.TeamId)
-	uchan := Srv.Store.User().Get(c.Session.UserId)
 
 	emailList := strings.Fields(message)
 
@@ -56,23 +55,10 @@ func (me *InvitePeopleProvider) DoCommand(c *Context, channelId string, message 
 		return &model.CommandResponse{ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: c.T("api.command.invite_people.no_email")}
 	}
 
-	var team *model.Team
-	if result := <-tchan; result.Err != nil {
-		c.Err = result.Err
+	if err := app.InviteNewUsersToTeam(emailList, c.TeamId, c.Session.UserId, c.GetSiteURL()); err != nil {
+		l4g.Error(err.Error())
 		return &model.CommandResponse{ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: c.T("api.command.invite_people.fail")}
-	} else {
-		team = result.Data.(*model.Team)
 	}
-
-	var user *model.User
-	if result := <-uchan; result.Err != nil {
-		c.Err = result.Err
-		return &model.CommandResponse{ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: c.T("api.command.invite_people.fail")}
-	} else {
-		user = result.Data.(*model.User)
-	}
-
-	go InviteMembers(c, team, user, emailList)
 
 	return &model.CommandResponse{ResponseType: model.COMMAND_RESPONSE_TYPE_EPHEMERAL, Text: c.T("api.command.invite_people.sent")}
 }

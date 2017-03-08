@@ -1,4 +1,4 @@
-.PHONY: build package run stop run-client run-server stop-client stop-server restart restart-server restart-client start-docker clean-dist clean nuke check-style check-client-style check-server-style check-unit-tests test dist setup-mac prepare-enteprise run-client-tests setup-run-client-tests cleanup-run-client-tests test-client build-linux build-osx build-windows internal-test-client
+.PHONY: build package run stop run-client run-server stop-client stop-server restart restart-server restart-client start-docker clean-dist clean nuke check-style check-client-style check-server-style check-unit-tests test dist setup-mac prepare-enteprise run-client-tests setup-run-client-tests cleanup-run-client-tests test-client build-linux build-osx build-windows internal-test-client vet
 
 # For golang 1.5.x compatibility (remove when we don't want to support it anymore)
 export GO15VENDOREXPERIMENT=1
@@ -85,6 +85,14 @@ start-docker:
         docker start mattermost-webrtc > /dev/null; \
     fi
 
+	@if [ $(shell docker ps -a | grep -ci mattermost-inbucket) -eq 0 ]; then \
+		echo starting mattermost-inbucket; \
+		docker run --name mattermost-inbucket -p 9000:10080 -p 2500:10025 -d jhillyerd/inbucket:latest > /dev/null; \
+	elif [ $(shell docker ps | grep -ci mattermost-inbucket) -eq 0 ]; then \
+		echo restarting mattermost-inbucket; \
+		docker start mattermost-inbucket > /dev/null; \
+	fi
+
 ifeq ($(BUILD_ENTERPRISE_READY),true)
 	@echo Ldap test user test.one
 	@if [ $(shell docker ps -a | grep -ci mattermost-openldap) -eq 0 ]; then \
@@ -132,6 +140,11 @@ stop-docker:
 		docker stop mattermost-webrtc > /dev/null; \
 	fi
 
+	@if [ $(shell docker ps -a | grep -ci mattermost-inbucket) -eq 1 ]; then \
+		echo stopping mattermost-inbucket; \
+		docker stop mattermost-inbucket > /dev/null; \
+	fi
+
 clean-docker:
 	@echo Removing docker containers
 
@@ -159,14 +172,20 @@ clean-docker:
 		docker rm -v mattermost-webrtc > /dev/null; \
 	fi
 
+	@if [ $(shell docker ps -a | grep -ci mattermost-inbucket) -eq 1 ]; then \
+		echo removing mattermost-inbucket; \
+		docker stop mattermost-inbucket > /dev/null; \
+		docker rm -v mattermost-inbucket > /dev/null; \
+	fi
+
 check-client-style:
 	@echo Checking client style
 
 	cd $(BUILD_WEBAPP_DIR) && $(MAKE) check-style
 
-check-server-style:
+check-server-style: govet
 	@echo Running GOFMT
-	$(eval GOFMT_OUTPUT := $(shell gofmt -d -s api/ model/ store/ utils/ manualtesting/ einterfaces/ mattermost.go 2>&1))
+	$(eval GOFMT_OUTPUT := $(shell gofmt -d -s api/ model/ store/ utils/ manualtesting/ einterfaces/ cmd/platform/ 2>&1))
 	@echo "$(GOFMT_OUTPUT)"
 	@if [ ! "$(GOFMT_OUTPUT)" ]; then \
 		echo "gofmt sucess"; \
@@ -183,18 +202,22 @@ test-server: start-docker prepare-enterprise
 	rm -f cover.out
 	echo "mode: count" > cover.out
 
-	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=650s -covermode=count -coverprofile=capi.out ./api || exit 1
+	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=1050s -covermode=count -coverprofile=capi.out ./api || exit 1
+	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=800s -covermode=count -coverprofile=capi4.out ./api4 || exit 1
+	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=60s -covermode=count -coverprofile=capp.out ./app || exit 1
 	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=60s -covermode=count -coverprofile=cmodel.out ./model || exit 1
 	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=180s -covermode=count -coverprofile=cstore.out ./store || exit 1
 	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=120s -covermode=count -coverprofile=cutils.out ./utils || exit 1
 	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=120s -covermode=count -coverprofile=cweb.out ./web || exit 1
 
 	tail -n +2 capi.out >> cover.out
+	tail -n +2 capi4.out >> cover.out
+	tail -n +2 capp.out >> cover.out
 	tail -n +2 cmodel.out >> cover.out
 	tail -n +2 cstore.out >> cover.out
 	tail -n +2 cutils.out >> cover.out
 	tail -n +2 cweb.out >> cover.out
-	rm -f capi.out cmodel.out cstore.out cutils.out cweb.out
+	rm -f capi.out capi4.out capp.out cmodel.out cstore.out cutils.out cweb.out
 
 ifeq ($(BUILD_ENTERPRISE_READY),true)
 	@echo Running Enterprise tests
@@ -218,7 +241,7 @@ ifeq ($(BUILD_ENTERPRISE_READY),true)
 	tail -n +2 csaml.out >> ecover.out
 	tail -n +2 ccluster.out >> ecover.out
 	tail -n +2 cmetrics.out >> ecover.out
-	tail -n +2 caccount_migration.out >> ecover.out	
+	tail -n +2 caccount_migration.out >> ecover.out
 	rm -f cldap.out ccompliance.out cmfa.out cemoji.out csaml.out ccluster.out cmetrics.out caccount_migration.out
 	rm -r ldap.test
 	rm -r compliance.test
@@ -233,10 +256,7 @@ ifeq ($(BUILD_ENTERPRISE_READY),true)
 endif
 
 internal-test-web-client: start-docker prepare-enterprise
-	$(GO) run $(GOFLAGS) *.go -run_web_client_tests
-
-internal-test-javascript-client: start-docker prepare-enterprise
-	$(GO) run $(GOFLAGS) *.go -run_javascript_client_tests
+	$(GO) run $(GOFLAGS) ./cmd/platform/*go test web_client_tests
 
 test-client: start-docker prepare-enterprise
 	@echo Running client tests
@@ -260,22 +280,22 @@ cover:
 prepare-enterprise:
 ifeq ($(BUILD_ENTERPRISE_READY),true)
 	@echo Enterprise build selected, preparing
-	cp $(BUILD_ENTERPRISE_DIR)/imports.go .
+	cp $(BUILD_ENTERPRISE_DIR)/imports.go cmd/platform/
 	rm -f enterprise
 	ln -s $(BUILD_ENTERPRISE_DIR) enterprise
 endif
 
 build-linux: .prebuild prepare-enterprise
 	@echo Build Linux amd64
-	env GOOS=linux GOARCH=amd64 $(GO) install $(GOFLAGS) $(GO_LINKER_FLAGS) $(go list ./... | grep -v /vendor/)
+	env GOOS=linux GOARCH=amd64 $(GO) install $(GOFLAGS) $(GO_LINKER_FLAGS) ./cmd/platform
 
 build-osx: .prebuild prepare-enterprise
 	@echo Build OSX amd64
-	env GOOS=darwin GOARCH=amd64 $(GO) install $(GOFLAGS) $(GO_LINKER_FLAGS) $(go list ./... | grep -v /vendor/) 
+	env GOOS=darwin GOARCH=amd64 $(GO) install $(GOFLAGS) $(GO_LINKER_FLAGS) ./cmd/platform
 
 build-windows: .prebuild prepare-enterprise
 	@echo Build Windows amd64
-	env GOOS=windows GOARCH=amd64 $(GO) install $(GOFLAGS) $(GO_LINKER_FLAGS) $(go list ./... | grep -v /vendor/) 
+	env GOOS=windows GOARCH=amd64 $(GO) install $(GOFLAGS) $(GO_LINKER_FLAGS) ./cmd/platform
 
 build: build-linux build-windows build-osx
 
@@ -303,6 +323,12 @@ package: build build-client
 
 	@# Disable developer settings
 	sed -i'' -e 's|"ConsoleLevel": "DEBUG"|"ConsoleLevel": "INFO"|g' $(DIST_PATH)/config/config.json
+
+	@# Reset email sending to original configuration
+	sed -i'' -e 's|"SendEmailNotifications": true,|"SendEmailNotifications": false,|g' $(DIST_PATH)/config/config.json
+	sed -i'' -e 's|"FeedbackEmail": "test@example.com",|"FeedbackEmail": "",|g' $(DIST_PATH)/config/config.json
+	sed -i'' -e 's|"SMTPServer": "dockerhost",|"SMTPServer": "",|g' $(DIST_PATH)/config/config.json
+	sed -i'' -e 's|"SMTPPort": "2500",|"SMTPPort": "",|g' $(DIST_PATH)/config/config.json
 
 	@# Package webapp
 	mkdir -p $(DIST_PATH)/webapp/dist
@@ -360,13 +386,13 @@ run-server: prepare-enterprise start-docker
 	@echo Running mattermost for development
 
 	mkdir -p $(BUILD_WEBAPP_DIR)/dist/files
-	$(GO) run $(GOFLAGS) $(GO_LINKER_FLAGS) *.go &
+	$(GO) run $(GOFLAGS) $(GO_LINKER_FLAGS) ./cmd/platform/*.go &
 
 run-cli: prepare-enterprise start-docker
 	@echo Running mattermost for development
 	@echo Example should be like 'make ARGS="-version" run-cli'
 
-	$(GO) run $(GOFLAGS) $(GO_LINKER_FLAGS) *.go ${ARGS}
+	$(GO) run $(GOFLAGS) $(GO_LINKER_FLAGS) ./cmd/platform/*.go ${ARGS}
 
 run-client:
 	@echo Running mattermost client for development
@@ -397,7 +423,7 @@ else
 		echo stopping mattermost $$PID; \
 		kill $$PID; \
 	done
-endif 
+endif
 
 stop-client:
 	@echo Stopping mattermost client
@@ -440,3 +466,45 @@ nuke: clean clean-docker
 
 setup-mac:
 	echo $$(boot2docker ip 2> /dev/null) dockerhost | sudo tee -a /etc/hosts
+
+govet:
+	@echo Running GOVET
+
+	$(GO) vet $(GOFLAGS) ./api || exit 1
+	$(GO) vet $(GOFLAGS) ./api4 || exit 1
+	$(GO) vet $(GOFLAGS) ./app || exit 1
+	$(GO) vet $(GOFLAGS) ./cmd/platform || exit 1
+	$(GO) vet $(GOFLAGS) ./einterfaces || exit 1
+	$(GO) vet $(GOFLAGS) ./manualtesting || exit 1
+	$(GO) vet $(GOFLAGS) ./model || exit 1
+	$(GO) vet $(GOFLAGS) ./model/gitlab || exit 1
+	$(GO) vet $(GOFLAGS) ./store || exit 1
+	$(GO) vet $(GOFLAGS) ./utils || exit 1
+	$(GO) vet $(GOFLAGS) ./web || exit 1
+
+ifeq ($(BUILD_ENTERPRISE_READY),true)
+	$(GO) vet $(GOFLAGS) ./enterprise || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/account_migration || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/brand || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/cluster || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/compliance || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/emoji || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/ldap || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/metrics || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/mfa || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/oauth/google || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/oauth/office365 || exit 1
+	$(GO) vet $(GOFLAGS) ./enterprise/saml || exit 1
+endif
+
+todo:
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ TODO
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ XXX
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ FIXME
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ "FIX ME"
+ifeq ($(BUILD_ENTERPRISE_READY),true)
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ TODO enterprise/ || true
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ XXX enterprise/ || true
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ FIXME enterprise/ || true
+	@ag --ignore Makefile --ignore-dir vendor --ignore-dir runtime --ignore-dir webapp/non_npm_dependencies/ "FIX ME" enterprise/ || true
+endif

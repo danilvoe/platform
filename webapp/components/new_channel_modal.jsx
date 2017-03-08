@@ -4,8 +4,10 @@
 import $ from 'jquery';
 import ReactDOM from 'react-dom';
 
+import {getShortenedURL} from 'utils/url.jsx';
 import * as UserAgent from 'utils/user_agent.jsx';
 import * as Utils from 'utils/utils.jsx';
+import * as ChannelUtils from 'utils/channel_utils.jsx';
 import Constants from 'utils/constants.jsx';
 
 import UserStore from 'stores/user_store.jsx';
@@ -141,18 +143,12 @@ export default class NewChannelModal extends React.Component {
         const isAdmin = TeamStore.isTeamAdminForCurrentTeam() || UserStore.isSystemAdminForCurrentUser();
         const isSystemAdmin = UserStore.isSystemAdminForCurrentUser();
 
-        if (global.window.mm_license.IsLicensed === 'true') {
-            if (global.window.mm_config.RestrictPublicChannelManagement === Constants.PERMISSIONS_SYSTEM_ADMIN && !isSystemAdmin) {
-                createPublicChannelLink = null;
-            } else if (global.window.mm_config.RestrictPublicChannelManagement === Constants.PERMISSIONS_TEAM_ADMIN && !isAdmin) {
-                createPublicChannelLink = null;
-            }
+        if (!ChannelUtils.showCreateOption(Constants.OPEN_CHANNEL, isAdmin, isSystemAdmin)) {
+            createPublicChannelLink = null;
+        }
 
-            if (global.window.mm_config.RestrictPrivateChannelManagement === Constants.PERMISSIONS_SYSTEM_ADMIN && !isSystemAdmin) {
-                createPrivateChannelLink = null;
-            } else if (global.window.mm_config.RestrictPrivateChannelManagement === Constants.PERMISSIONS_TEAM_ADMIN && !isAdmin) {
-                createPrivateChannelLink = null;
-            }
+        if (!ChannelUtils.showCreateOption(Constants.PRIVATE_CHANNEL, isAdmin, isSystemAdmin)) {
+            createPrivateChannelLink = null;
         }
 
         var channelTerm = '';
@@ -194,7 +190,7 @@ export default class NewChannelModal extends React.Component {
             break;
         }
 
-        const prettyTeamURL = Utils.getShortenedTeamURL();
+        const prettyTeamURL = getShortenedURL();
 
         return (
             <span>
@@ -277,7 +273,7 @@ export default class NewChannelModal extends React.Component {
                                         className='form-control no-resize'
                                         ref='channel_purpose'
                                         rows='4'
-                                        placeholder={Utils.localizeMessage('channel_modal.purpose', 'Purpose')}
+                                        placeholder={Utils.localizeMessage('channel_modal.purposeEx', 'E.g.: "A channel to file bugs and improvements"')}
                                         maxLength='250'
                                         value={this.props.channelData.purpose}
                                         onChange={this.handleChange}
@@ -314,8 +310,8 @@ export default class NewChannelModal extends React.Component {
                                         className='form-control no-resize'
                                         ref='channel_header'
                                         rows='4'
-                                        placeholder={Utils.localizeMessage('channel_modal.header', 'Header')}
-                                        maxLength='128'
+                                        placeholder={Utils.localizeMessage('channel_modal.headerEx', 'E.g.: "[Link Title](http://example.com)"')}
+                                        maxLength='1024'
                                         value={this.props.channelData.header}
                                         onChange={this.handleChange}
                                         tabIndex='2'

@@ -43,6 +43,8 @@ export default class UserList extends React.Component {
         this.search = this.search.bind(this);
         this.loadComplete = this.loadComplete.bind(this);
 
+        this.searchTimeoutId = 0;
+
         const stats = TeamStore.getStats(this.props.params.team);
 
         this.state = {
@@ -71,14 +73,20 @@ export default class UserList extends React.Component {
     componentWillReceiveProps(nextProps) {
         if (nextProps.params.team !== this.props.params.team) {
             const stats = TeamStore.getStats(nextProps.params.team);
+
             this.setState({
                 team: AdminStore.getTeam(nextProps.params.team),
                 users: [],
                 teamMembers: TeamStore.getMembersInTeam(nextProps.params.team),
-                total: stats.total_member_count
+                total: stats.total_member_count,
+                serverError: null,
+                showPasswordModal: false,
+                loading: true,
+                user: null
             });
 
-            this.getTeamProfiles(nextProps.params.team);
+            loadProfilesAndTeamMembers(0, Constants.PROFILE_CHUNK_SIZE, nextProps.params.team, this.loadComplete);
+            getTeamStats(nextProps.params.team);
         }
     }
 
@@ -148,15 +156,28 @@ export default class UserList extends React.Component {
         const options = {};
         options[UserSearchOptions.ALLOW_INACTIVE] = true;
 
-        searchUsers(
-            term,
-            this.props.params.team,
-            options,
-            (users) => {
-                this.setState({loading: true, search: true, users});
-                loadTeamMembersForProfilesList(users, this.props.params.team, this.loadComplete);
-            }
+        clearTimeout(this.searchTimeoutId);
+
+        const searchTimeoutId = setTimeout(
+            () => {
+                searchUsers(
+                    term,
+                    this.props.params.team,
+                    options,
+                    (users) => {
+                        if (searchTimeoutId !== this.searchTimeoutId) {
+                            return;
+                        }
+
+                        this.setState({loading: true, search: true, users});
+                        loadTeamMembersForProfilesList(users, this.props.params.team, this.loadComplete);
+                    }
+                );
+            },
+            Constants.SEARCH_TIMEOUT_MILLISECONDS
         );
+
+        this.searchTimeoutId = searchTimeoutId;
     }
 
     render() {
@@ -248,26 +269,21 @@ export default class UserList extends React.Component {
                     />
                 </h3>
                 <FormError error={this.state.serverError}/>
-                <form
-                    className='form-horizontal'
-                    role='form'
-                >
-                    <div className='more-modal__list member-list-holder'>
-                        <SearchableUserList
-                            users={usersToDisplay}
-                            usersPerPage={USERS_PER_PAGE}
-                            total={this.state.total}
-                            extraInfo={extraInfo}
-                            nextPage={this.nextPage}
-                            search={this.search}
-                            actions={[AdminTeamMembersDropdown]}
-                            actionProps={{
-                                doPasswordReset: this.doPasswordReset
-                            }}
-                            actionUserProps={actionUserProps}
-                        />
-                    </div>
-                </form>
+                <div className='more-modal__list member-list-holder'>
+                    <SearchableUserList
+                        users={usersToDisplay}
+                        usersPerPage={USERS_PER_PAGE}
+                        total={this.state.total}
+                        extraInfo={extraInfo}
+                        nextPage={this.nextPage}
+                        search={this.search}
+                        actions={[AdminTeamMembersDropdown]}
+                        actionProps={{
+                            doPasswordReset: this.doPasswordReset
+                        }}
+                        actionUserProps={actionUserProps}
+                    />
+                </div>
                 <ResetPasswordModal
                     user={this.state.user}
                     show={this.state.showPasswordModal}

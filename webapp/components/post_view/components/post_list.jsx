@@ -1,11 +1,11 @@
 // Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
-
 import $ from 'jquery';
 
 import Post from './post.jsx';
 import FloatingTimestamp from './floating_timestamp.jsx';
 import ScrollToBottomArrows from './scroll_to_bottom_arrows.jsx';
+import NewMessageIndicator from './new_message_indicator.jsx';
 
 import * as GlobalActions from 'actions/global_actions.jsx';
 
@@ -45,6 +45,7 @@ export default class PostList extends React.Component {
         this.scrollToBottom = this.scrollToBottom.bind(this);
         this.scrollToBottomAnimated = this.scrollToBottomAnimated.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.childComponentDidUpdate = this.childComponentDidUpdate.bind(this);
 
         this.jumpToPostNode = null;
         this.wasAtBottom = true;
@@ -56,7 +57,8 @@ export default class PostList extends React.Component {
         this.state = {
             isScrolling: false,
             fullWidthIntro: PreferenceStore.get(Preferences.CATEGORY_DISPLAY_SETTINGS, Preferences.CHANNEL_DISPLAY_MODE, Preferences.CHANNEL_DISPLAY_MODE_DEFAULT) === Preferences.CHANNEL_DISPLAY_MODE_FULL_SCREEN,
-            topPostId: null
+            topPostId: null,
+            unViewedCount: 0
         };
 
         if (props.channel) {
@@ -67,13 +69,31 @@ export default class PostList extends React.Component {
     }
 
     componentWillReceiveProps(nextProps) {
-        // TODO: Clean-up intro text creation
         if (this.props.channel && this.props.channel.type === Constants.DM_CHANNEL) {
             const teammateId = Utils.getUserIdFromChannelName(this.props.channel);
             if (!this.props.profiles[teammateId] && nextProps.profiles[teammateId]) {
                 this.introText = createChannelIntroMessage(this.props.channel, this.state.fullWidthIntro);
             }
         }
+
+        const posts = nextProps.postList.posts;
+        const order = nextProps.postList.order;
+        let unViewedCount = 0;
+
+        // Only count if we're  not at the bottom, not in highlight view,
+        // or anything else
+        if (nextProps.scrollType === Constants.ScrollTypes.FREE) {
+            unViewedCount = order.reduce((count, orderId) => {
+                const post = posts[orderId];
+                if (post.create_at > nextProps.lastViewedBottom &&
+                    post.user_id !== nextProps.currentUser.id &&
+                    post.state !== Constants.POST_DELETED) {
+                    return count + 1;
+                }
+                return count;
+            }, 0);
+        }
+        this.setState({unViewedCount});
     }
 
     handleKeyDown(e) {
@@ -100,16 +120,9 @@ export default class PostList extends React.Component {
                 break;
             }
         }
-        this.wasAtBottom = this.isAtBottom();
         if (!this.jumpToPostNode && childNodes.length > 0) {
             this.jumpToPostNode = childNodes[childNodes.length - 1];
         }
-
-        // --- --------
-
-        this.props.postListScrolled(this.isAtBottom());
-        this.prevScrollHeight = this.refs.postlist.scrollHeight;
-        this.prevOffsetTop = this.jumpToPostNode.offsetTop;
 
         this.updateFloatingTimestamp();
 
@@ -118,6 +131,15 @@ export default class PostList extends React.Component {
                 isScrolling: true
             });
         }
+
+        // Postpone all DOM related calculations to next frame.
+        // scrollHeight etc might return wrong data at this point
+        setTimeout(() => {
+            this.wasAtBottom = this.isAtBottom();
+            this.props.postListScrolled(this.isAtBottom());
+            this.prevScrollHeight = this.refs.postlist.scrollHeight;
+            this.prevOffsetTop = this.jumpToPostNode.offsetTop;
+        }, 0);
 
         this.scrollStopAction.fireAfter(Constants.SCROLL_DELAY);
     }
@@ -140,7 +162,7 @@ export default class PostList extends React.Component {
                 const id = this.props.postList.order[i];
                 const element = this.refs[id];
 
-                if (!element || element.offsetTop + element.clientHeight <= this.refs.postlist.scrollTop) {
+                if (!element || !element.domNode || element.domNode.offsetTop + element.domNode.clientHeight <= this.refs.postlist.scrollTop) {
                     // this post is off the top of the screen so the last one is at the top of the screen
                     let topPostId;
 
@@ -274,7 +296,7 @@ export default class PostList extends React.Component {
 
             if (commentRootId) {
                 for (const postId in posts) {
-                    if (posts[postId].root_id === commentRootId) {
+                    if (posts[postId].root_id === commentRootId && !PostUtils.isSystemMessage(posts[postId])) {
                         commentCount += 1;
                         if (posts[postId].user_id === userId) {
                             shouldHighlightThreads = true;
@@ -328,6 +350,7 @@ export default class PostList extends React.Component {
                     isFlagged={isFlagged}
                     status={status}
                     isBusy={this.props.isBusy}
+                    childComponentDidUpdateFunction={this.childComponentDidUpdate}
                 />
             );
 
@@ -355,6 +378,7 @@ export default class PostList extends React.Component {
             if ((postUserId !== userId || this.props.ownNewMessage) &&
                     this.props.lastViewed !== 0 &&
                     post.create_at > this.props.lastViewed &&
+                    !Utils.isPostEphemeral(post) &&
                     !renderedLastViewed) {
                 renderedLastViewed = true;
 
@@ -402,6 +426,11 @@ export default class PostList extends React.Component {
                     this.scrollToBottom();
                 }
             });
+
+            // This avoids the scroll jumping from top to bottom after the page has rendered (PLT-5025).
+            if (!this.refs.newMessageSeparator) {
+                this.scrollToBottom();
+            }
         } else if (this.props.scrollType === ScrollTypes.POST && this.props.scrollPostId) {
             window.requestAnimationFrame(() => {
                 const postNode = ReactDOM.findDOMNode(this.refs[this.props.scrollPostId]);
@@ -431,7 +460,7 @@ export default class PostList extends React.Component {
             }
         } else if (this.refs.postlist.scrollHeight !== this.prevScrollHeight) {
             window.requestAnimationFrame(() => {
-                if (this.jumpToPostNode) {
+                if (this.jumpToPostNode && this.refs.postlist) {
                     this.refs.postlist.scrollTop += (this.jumpToPostNode.offsetTop - this.prevOffsetTop);
                 }
             });
@@ -468,6 +497,12 @@ export default class PostList extends React.Component {
         );
     }
 
+    checkAndUpdateScrolling() {
+        if (this.props.postList != null && this.refs.postlist) {
+            this.updateScrolling();
+        }
+    }
+
     componentDidMount() {
         if (this.props.postList != null) {
             this.updateScrolling();
@@ -485,9 +520,11 @@ export default class PostList extends React.Component {
     }
 
     componentDidUpdate() {
-        if (this.props.postList != null && this.refs.postlist) {
-            this.updateScrolling();
-        }
+        this.checkAndUpdateScrolling();
+    }
+
+    childComponentDidUpdate() {
+        this.checkAndUpdateScrolling();
     }
 
     render() {
@@ -553,6 +590,10 @@ export default class PostList extends React.Component {
                     atBottom={this.wasAtBottom}
                     onClick={this.scrollToBottomAnimated}
                 />
+                <NewMessageIndicator
+                    newMessages={this.state.unViewedCount}
+                    onClick={this.scrollToBottomAnimated}
+                />
                 <div
                     ref='postlist'
                     className='post-list-holder-by-time'
@@ -576,6 +617,7 @@ export default class PostList extends React.Component {
 
 PostList.defaultProps = {
     lastViewed: 0,
+    lastViewedBottom: Number.MAX_VALUE,
     ownNewMessage: false
 };
 
@@ -590,6 +632,7 @@ PostList.propTypes = {
     showMoreMessagesTop: React.PropTypes.bool,
     showMoreMessagesBottom: React.PropTypes.bool,
     lastViewed: React.PropTypes.number,
+    lastViewedBottom: React.PropTypes.number,
     ownNewMessage: React.PropTypes.bool,
     postsToHighlight: React.PropTypes.object,
     displayNameType: React.PropTypes.string,

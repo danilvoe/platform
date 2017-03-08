@@ -11,9 +11,11 @@ web/static/js/bundle*.js.map
 web/static/js/libs*.js
 
 config/active.dat
+config/config.json
 
 # Enteprise imports file
 imports.go
+cmd/mattermost/imports.go
 
 # Build Targets
 .prebuild
@@ -69,6 +71,7 @@ web/sass-files/sass/.sass-cache/
 data/*
 webapp/data/*
 api/data/*
+api4/data/*
 
 enterprise
 
@@ -78,3 +81,4 @@ ecover.out
 .agignore
 .ctags
 tags
+.idea

@@ -258,6 +258,43 @@
         outline: none;
         text-align: center;
     }
+
+    .new-messages__button {
+        @include opacity(0);
+        bottom: 0;
+        font-size: 13.5px;
+        left: 0;
+        margin: 0 auto;
+        position: absolute;
+        right: 0;
+        text-align: center;
+        visibility: hidden;
+        z-index: 1;
+
+        .fa {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-right: .5rem;
+            position: relative;
+            top: 1px;
+        }
+
+        div {
+            @include border-radius(50px);
+            cursor: pointer;
+            display: inline-block;
+            padding: 5px 10px;
+        }
+
+        &.visible {
+            @include opacity(1);
+            visibility: visible;
+        }
+
+        &.disabled {
+            display: none;
+        }
+    }
 }
 
 .post-list__timestamp {
@@ -274,13 +311,18 @@
 
     &.scrolling {
         @include translateY(0);
-        @include opacity(.8);
+        @include opacity(.9);
+    }
+
+    &.rhs {
+        top: 98px;
     }
 
     > div {
         @include border-radius(3px);
         @include font-smoothing(initial);
         background: $primary-color;
+        border: 1px solid;
         color: $white;
         display: inline-block;
         font-size: 12px;
@@ -327,6 +369,18 @@
         max-width: 1028px;
     }
 
+    .post-create {
+        &.scroll {
+            .btn-file {
+                right: 10px;
+            }
+
+            .custom-textarea {
+                padding-right: 43px;
+            }
+        }
+    }
+
     .post-create-body {
         padding: 0 0 2px;
         position: relative;
@@ -334,16 +388,6 @@
         .post-body__cell {
             position: relative;
             vertical-align: top;
-
-            &.scroll {
-                .btn-file {
-                    right: 15px;
-                }
-
-                .custom-textarea {
-                    padding-right: 43px;
-                }
-            }
         }
 
         .send-button {
@@ -361,12 +405,16 @@
             &:active {
                 @include opacity(.75);
             }
+
+            &.disabled {
+                color: grey;
+            }
         }
 
         .custom-textarea {
             bottom: 0;
             max-height: 162px !important;
-            padding-right: 28px;
+            padding-right: 35px;
             padding-top: 8px;
         }
 
@@ -381,12 +429,12 @@
         .btn-file {
             @include opacity(.5);
             @include single-transition(all, .15s);
-            color: #444444;
             font-size: 16px;
             padding: 7px 9px 6px;
             position: absolute;
             right: 0;
             top: 1px;
+            z-index: 5;
 
             svg {
                 height: 18px;
@@ -397,6 +445,15 @@
             &:active {
                 @include opacity(.9);
                 box-shadow: none;
+            }
+
+            &.btn-file__disabled {
+                @include opacity(.1);
+
+                &:hover,
+                &:active {
+                    @include opacity(.1);
+                }
             }
         }
 
@@ -409,12 +466,16 @@
         @include clearfix;
         font-size: 13px;
         padding: 3px 0 0;
+        position: relative;
 
-        .control-label {
+        .post-error {
+            @include opacity(.55);
+            display: inline-block;
+            font-size: .85em;
             font-weight: normal;
             margin-bottom: 0;
-            position: relative;
-            top: -5px;
+            position: absolute;
+            top: 4px;
         }
     }
 
@@ -456,6 +517,17 @@
     padding: 8px .5em 0 1em;
     position: relative;
     word-wrap: break-word;
+
+    &.post--system {
+        .post__header {
+            .col__reply {
+                min-width: 0;
+            }
+            .dropdown {
+                margin-right: 0;
+            }
+        }
+    }
 
     &:hover {
         .dropdown,
@@ -509,7 +581,22 @@
         }
 
         .status-wrapper {
+            cursor: auto;
             height: 14px;
+
+            .status {
+                bottom: auto;
+                height: 13px;
+                left: -2px;
+                position: relative;
+                right: auto;
+                top: auto;
+                width: 13px;
+            }
+
+            svg {
+                top: 1px;
+            }
 
             &:after {
                 bottom: 0;
@@ -517,9 +604,9 @@
         }
 
         blockquote {
-            display: inline-block;
             font-size: 1em;
             margin-left: 0;
+            margin-top: 1.3em;
             padding: 3px 0 0 25px;
             vertical-align: top;
 
@@ -527,6 +614,12 @@
                 font-size: 15px;
                 left: 4px;
                 top: 2px;
+            }
+        }
+
+        .search-item-snippet {
+            blockquote {
+                margin-top: 0;
             }
         }
 
@@ -555,6 +648,7 @@
             }
 
             p + p {
+                margin-bottom: 1em;
                 margin-top: 1em;
             }
 
@@ -624,11 +718,8 @@
             padding-top: 3px;
             width: 16px;
 
-            img,
-            svg {
-                height: 20px;
-                visibility: hidden;
-                width: 9px;
+            img {
+                display: none;
             }
         }
     }
@@ -641,25 +732,27 @@
         position: relative;
     }
 
+    .post--edited {
+        // If the last paragraph of an edited post is a paragraph, make it inline-block so that the (edited) indicator can be on the same line as it
+        .post-message__text > p:last-child {
+            display: inline-block;
+        }
+
+        .post-edited-indicator {
+            @include opacity(.6);
+            font-size: .87em;
+        }
+    }
+
     p {
-        font-size: .97em;
+        font-size: 13.5px;
         line-height: 1.6em;
         margin: 0;
         white-space: pre-wrap;
-
-        &:last-child {
-            margin-bottom: .5em;
-        }
     }
 
     .post__header--info {
         padding: 0;
-    }
-
-    span {
-        p:last-child {
-            margin-bottom: .5em;
-        }
     }
 
     &.post--root {
@@ -847,9 +940,11 @@
         text-align: right;
         width: 53px;
 
-        svg {
-            height: 32px;
-            width: 32px;
+        .icon {
+            svg {
+                height: 32px;
+                width: 32px;
+            }
         }
 
         path {
@@ -935,18 +1030,12 @@
         width: 100%;
         word-wrap: break-word;
 
-        p {
-            margin: 0 0 .4em;
+        div {
+            margin-bottom: .4em;
         }
 
         p + p {
-            margin-top: 1.4em;
-        }
-
-        li {
-            > p {
-                margin-top: 10px;
-            }
+            margin: 1.2em 0 0;
         }
 
         img {
@@ -955,7 +1044,7 @@
 
         ul,
         ol {
-            font-size: .97em;
+            font-size: 13.5px;
             margin-bottom: .4em;
             padding-left: 20px;
 
@@ -966,6 +1055,7 @@
             li {
                 ul,
                 ol {
+                    font-size: 1em;
                     margin: 0;
                     padding: 0 0 0 20px;
                 }
@@ -1005,17 +1095,64 @@
             }
         }
 
+        ul + p,
+        ol + p {
+            margin-top: 1em;
+        }
+
+        p + ul,
+        p + ol {
+            margin-top: 1em;
+        }
+
         .pending-post-actions {
+            background: alpha-color($black, .7);
+            color: $white;
+            font-size: .9em;
+            padding: 5px 7px;
             position: absolute;
             right: 0;
             top: 0;
-            padding: 5px 7px;
-            background: rgba(0, 0, 0, .7);
-            color: white;
-            font-size: .9em;
+            z-index: 100;
 
             a {
-                color: white;
+                color: $white;
+            }
+        }
+
+        .post-reaction-list {
+            min-height: 30px;
+        }
+
+        .post-reaction {
+            @include user-select(none);
+            @include border-radius(3px);
+            border: 1px solid $primary-color;
+            cursor: pointer;
+            display: inline-block;
+            font-size: 11px;
+            height: 23px;
+            margin-bottom: 5px;
+            margin-right: 5px;
+            padding: 0 4px 0 3px;
+
+            .post-reaction__emoji {
+                margin: 2px 3px 0 0;
+                max-height: 16px;
+                max-width: 16px;
+                vertical-align: middle;
+            }
+
+            .post-reaction__count {
+                line-height: 10px;
+                position: relative;
+                top: 3px;
+            }
+
+            &--current-user {
+                .post-reaction__count {
+                    font-weight: 600;
+                }
             }
         }
     }
@@ -1038,7 +1175,7 @@
         cursor: pointer;
         display: inline-block;
         font: normal normal normal 14px/1 FontAwesome;
-        margin: 0 0 10px;
+        margin: 0;
         text-rendering: auto;
 
         &.pull-left {
@@ -1062,6 +1199,23 @@
     .post__time {
         @include opacity(.6);
         font-size: .9em;
+    }
+
+    .post__permalink {
+        color: inherit;
+
+        &:hover,
+        &:focus {
+            color: inherit;
+        }
+
+        &:focus {
+            text-decoration: none;
+        }
+
+        &:hover {
+            text-decoration: underline;
+        }
     }
 
     .post-loading-gif {
@@ -1192,10 +1346,10 @@
 .bot-indicator {
     border-radius: 2px;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
-    margin: 0 10px 0 -4px;
-    padding: 2px 4px;
+    margin: 2px 10px 0 -4px;
+    padding: 1px 4px;
 }
 
 .permalink-text {
@@ -1205,32 +1359,4 @@
 .permalink-popover {
     margin-left: 50px !important;
     min-width: 320px;
-}
-
-.post-reaction-list {
-    height: 24px;
-}
-
-.post-reaction {
-    border: 1px solid $primary-color;
-    border-radius: 3px;
-    cursor: pointer;
-    display: inline-block;
-    padding: 1px 2px;
-    @include user-select(none);
-
-    .post-reaction__emoji {
-        height: 14px;
-        margin-top: 3px;
-        width: 14px;
-        vertical-align: top;
-    }
-
-    & + & {
-        margin-left: 5px;
-    }
-
-    &--current-user {
-        // background-colour set by theme code
-    }
 }

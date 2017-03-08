@@ -32,6 +32,15 @@ var CfgHash = ""
 var CfgFileName string = ""
 var ClientCfg map[string]string = map[string]string{}
 var originalDisableDebugLvl l4g.Level = l4g.DEBUG
+var siteURL = ""
+
+func GetSiteURL() string {
+	return siteURL
+}
+
+func SetSiteURL(url string) {
+	siteURL = strings.TrimRight(url, "/")
+}
 
 func FindConfigFile(fileName string) string {
 	if _, err := os.Stat("./config/" + fileName); err == nil {
@@ -59,7 +68,7 @@ func FindDir(dir string) string {
 func DisableDebugLogForTest() {
 	if l4g.Global["stdout"] != nil {
 		originalDisableDebugLvl = l4g.Global["stdout"].Level
-		l4g.Global["stdout"].Level = l4g.WARNING
+		l4g.Global["stdout"].Level = l4g.ERROR
 	}
 }
 
@@ -187,6 +196,10 @@ func LoadConfig(fileName string) {
 		}
 	}
 
+	if err := ValidateLocales(&config); err != nil {
+		panic(T(err.Id))
+	}
+
 	if err := ValidateLdapFilter(&config); err != nil {
 		panic(T(err.Id))
 	}
@@ -215,6 +228,7 @@ func LoadConfig(fileName string) {
 	}
 
 	SetDefaultRolesBasedOnConfig()
+	SetSiteURL(*Cfg.ServiceSettings.SiteURL)
 }
 
 func RegenerateClientConfig() {
@@ -238,11 +252,14 @@ func getClientConfig(c *model.Config) map[string]string {
 	props["EnableOpenServer"] = strconv.FormatBool(*c.TeamSettings.EnableOpenServer)
 	props["RestrictDirectMessage"] = *c.TeamSettings.RestrictDirectMessage
 	props["RestrictTeamInvite"] = *c.TeamSettings.RestrictTeamInvite
+	props["RestrictPublicChannelCreation"] = *c.TeamSettings.RestrictPublicChannelCreation
+	props["RestrictPrivateChannelCreation"] = *c.TeamSettings.RestrictPrivateChannelCreation
 	props["RestrictPublicChannelManagement"] = *c.TeamSettings.RestrictPublicChannelManagement
 	props["RestrictPrivateChannelManagement"] = *c.TeamSettings.RestrictPrivateChannelManagement
+	props["RestrictPublicChannelDeletion"] = *c.TeamSettings.RestrictPublicChannelDeletion
+	props["RestrictPrivateChannelDeletion"] = *c.TeamSettings.RestrictPrivateChannelDeletion
 
 	props["EnableOAuthServiceProvider"] = strconv.FormatBool(c.ServiceSettings.EnableOAuthServiceProvider)
-	props["SegmentDeveloperKey"] = c.ServiceSettings.SegmentDeveloperKey
 	props["GoogleDeveloperKey"] = c.ServiceSettings.GoogleDeveloperKey
 	props["EnableIncomingWebhooks"] = strconv.FormatBool(c.ServiceSettings.EnableIncomingWebhooks)
 	props["EnableOutgoingWebhooks"] = strconv.FormatBool(c.ServiceSettings.EnableOutgoingWebhooks)
@@ -250,9 +267,13 @@ func getClientConfig(c *model.Config) map[string]string {
 	props["EnableOnlyAdminIntegrations"] = strconv.FormatBool(*c.ServiceSettings.EnableOnlyAdminIntegrations)
 	props["EnablePostUsernameOverride"] = strconv.FormatBool(c.ServiceSettings.EnablePostUsernameOverride)
 	props["EnablePostIconOverride"] = strconv.FormatBool(c.ServiceSettings.EnablePostIconOverride)
+	props["EnableLinkPreviews"] = strconv.FormatBool(*c.ServiceSettings.EnableLinkPreviews)
 	props["EnableTesting"] = strconv.FormatBool(c.ServiceSettings.EnableTesting)
 	props["EnableDeveloper"] = strconv.FormatBool(*c.ServiceSettings.EnableDeveloper)
 	props["EnableDiagnostics"] = strconv.FormatBool(*c.LogSettings.EnableDiagnostics)
+	props["RestrictPostDelete"] = *c.ServiceSettings.RestrictPostDelete
+	props["AllowEditPost"] = *c.ServiceSettings.AllowEditPost
+	props["PostEditTimeLimit"] = fmt.Sprintf("%v", *c.ServiceSettings.PostEditTimeLimit)
 
 	props["SendEmailNotifications"] = strconv.FormatBool(c.EmailSettings.SendEmailNotifications)
 	props["SendPushNotifications"] = strconv.FormatBool(*c.EmailSettings.SendPushNotifications)
@@ -294,6 +315,13 @@ func getClientConfig(c *model.Config) map[string]string {
 
 	props["EnableWebrtc"] = strconv.FormatBool(*c.WebrtcSettings.Enable)
 
+	props["MaxNotificationsPerChannel"] = strconv.FormatInt(*c.TeamSettings.MaxNotificationsPerChannel, 10)
+	props["TimeBetweenUserTypingUpdatesMilliseconds"] = strconv.FormatInt(*c.ServiceSettings.TimeBetweenUserTypingUpdatesMilliseconds, 10)
+	props["EnableUserTypingMessages"] = strconv.FormatBool(*c.ServiceSettings.EnableUserTypingMessages)
+
+	props["DiagnosticId"] = CfgDiagnosticId
+	props["DiagnosticsEnabled"] = strconv.FormatBool(*c.LogSettings.EnableDiagnostics)
+
 	if IsLicensed {
 		if *License.Features.CustomBrand {
 			props["EnableCustomBrand"] = strconv.FormatBool(*c.TeamSettings.EnableCustomBrand)
@@ -311,6 +339,7 @@ func getClientConfig(c *model.Config) map[string]string {
 
 		if *License.Features.MFA {
 			props["EnableMultifactorAuthentication"] = strconv.FormatBool(*c.ServiceSettings.EnableMultifactorAuthentication)
+			props["EnforceMultifactorAuthentication"] = strconv.FormatBool(*c.ServiceSettings.EnforceMultifactorAuthentication)
 		}
 
 		if *License.Features.Compliance {
@@ -360,6 +389,29 @@ func ValidateLdapFilter(cfg *model.Config) *model.AppError {
 			return err
 		}
 	}
+	return nil
+}
+
+func ValidateLocales(cfg *model.Config) *model.AppError {
+	locales := GetSupportedLocales()
+	if _, ok := locales[*cfg.LocalizationSettings.DefaultServerLocale]; !ok {
+		return model.NewLocAppError("ValidateLocales", "utils.config.supported_server_locale.app_error", nil, "")
+	}
+
+	if _, ok := locales[*cfg.LocalizationSettings.DefaultClientLocale]; !ok {
+		return model.NewLocAppError("ValidateLocales", "utils.config.supported_client_locale.app_error", nil, "")
+	}
+
+	if len(*cfg.LocalizationSettings.AvailableLocales) > 0 {
+		for _, word := range strings.Split(*cfg.LocalizationSettings.AvailableLocales, ",") {
+			if word == *cfg.LocalizationSettings.DefaultClientLocale {
+				return nil
+			}
+		}
+
+		return model.NewLocAppError("ValidateLocales", "utils.config.validate_locale.app_error", nil, "")
+	}
+
 	return nil
 }
 
