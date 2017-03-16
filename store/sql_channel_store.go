@@ -314,11 +314,37 @@ func (us SqlChannelStore) InvalidateChannel(id string) {
 }
 
 func (us SqlChannelStore) InvalidateChannelByName(teamId, name string) {
-	channelCache.Remove(teamId + name)
+	channelByNameCache.Remove(teamId + name)
 }
 
 func (s SqlChannelStore) Get(id string, allowFromCache bool) StoreChannel {
 	return s.get(id, false, allowFromCache)
+}
+
+func (s SqlChannelStore) GetPinnedPosts(channelId string) StoreChannel {
+	storeChannel := make(StoreChannel, 1)
+
+	go func() {
+		result := StoreResult{}
+		pl := &model.PostList{}
+
+		var posts []*model.Post
+		if _, err := s.GetReplica().Select(&posts, "SELECT * FROM Posts WHERE IsPinned = true AND ChannelId = :ChannelId AND DeleteAt = 0 ORDER BY CreateAt ASC", map[string]interface{}{"ChannelId": channelId}); err != nil {
+			result.Err = model.NewLocAppError("SqlPostStore.GetPinnedPosts", "store.sql_channel.pinned_posts.app_error", nil, err.Error())
+		} else {
+			for _, post := range posts {
+				pl.AddPost(post)
+				pl.AddOrder(post.Id)
+			}
+		}
+
+		result.Data = pl
+
+		storeChannel <- result
+		close(storeChannel)
+	}()
+
+	return storeChannel
 }
 
 func (s SqlChannelStore) GetFromMaster(id string) StoreChannel {
@@ -360,9 +386,9 @@ func (s SqlChannelStore) get(id string, master bool, allowFromCache bool) StoreC
 		}
 
 		if obj, err := db.Get(model.Channel{}, id); err != nil {
-			result.Err = model.NewLocAppError("SqlChannelStore.Get", "store.sql_channel.get.find.app_error", nil, "id="+id+", "+err.Error())
+			result.Err = model.NewAppError("SqlChannelStore.Get", "store.sql_channel.get.find.app_error", nil, "id="+id+", "+err.Error(), http.StatusInternalServerError)
 		} else if obj == nil {
-			result.Err = model.NewAppError("SqlChannelStore.Get", "store.sql_channel.get.existing.app_error", nil, "id="+id, http.StatusBadRequest)
+			result.Err = model.NewAppError("SqlChannelStore.Get", "store.sql_channel.get.existing.app_error", nil, "id="+id, http.StatusNotFound)
 		} else {
 			result.Data = obj.(*model.Channel)
 			channelCache.AddWithExpiresInSecs(id, obj.(*model.Channel), CHANNEL_CACHE_SEC)
@@ -524,6 +550,40 @@ func (s SqlChannelStore) GetMoreChannels(teamId string, userId string, offset in
 	return storeChannel
 }
 
+func (s SqlChannelStore) GetPublicChannelsForTeam(teamId string, offset int, limit int) StoreChannel {
+	storeChannel := make(StoreChannel, 1)
+
+	go func() {
+		result := StoreResult{}
+
+		data := &model.ChannelList{}
+		_, err := s.GetReplica().Select(data,
+			`SELECT
+			    *
+			FROM
+			    Channels
+			WHERE
+			    TeamId = :TeamId
+					AND Type = 'O'
+					AND DeleteAt = 0
+			ORDER BY DisplayName
+			LIMIT :Limit
+			OFFSET :Offset`,
+			map[string]interface{}{"TeamId": teamId, "Limit": limit, "Offset": offset})
+
+		if err != nil {
+			result.Err = model.NewLocAppError("SqlChannelStore.GetPublicChannelsForTeam", "store.sql_channel.get_public_channels.get.app_error", nil, "teamId="+teamId+", err="+err.Error())
+		} else {
+			result.Data = data
+		}
+
+		storeChannel <- result
+		close(storeChannel)
+	}()
+
+	return storeChannel
+}
+
 type channelIdWithCountAndUpdateAt struct {
 	Id            string
 	TotalMsgCount int64
@@ -624,7 +684,6 @@ func (s SqlChannelStore) getByName(teamId string, name string, includeDeleted bo
 				}
 			}
 		}
-
 		if err := s.GetReplica().SelectOne(&channel, query, map[string]interface{}{"TeamId": teamId, "Name": name}); err != nil {
 			if err == sql.ErrNoRows {
 				result.Err = model.NewLocAppError("SqlChannelStore.GetByName", MISSING_CHANNEL_ERROR, nil, "teamId="+teamId+", "+"name="+name+", "+err.Error())

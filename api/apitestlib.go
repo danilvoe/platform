@@ -6,6 +6,7 @@ package api
 import (
 	"time"
 
+	"github.com/mattermost/platform/api4"
 	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
 	"github.com/mattermost/platform/store"
@@ -21,6 +22,7 @@ type TestHelper struct {
 	BasicUser2   *model.User
 	BasicChannel *model.Channel
 	BasicPost    *model.Post
+	PinnedPost   *model.Post
 
 	SystemAdminClient  *model.Client
 	SystemAdminTeam    *model.Team
@@ -42,6 +44,7 @@ func SetupEnterprise() *TestHelper {
 		InitRouter()
 		app.StartServer()
 		utils.InitHTML()
+		api4.InitApi(false)
 		InitApi()
 		utils.EnableDebugLogForTest()
 		app.Srv.Store.MarkSystemRanUnitTests()
@@ -90,6 +93,9 @@ func (me *TestHelper) InitBasic() *TestHelper {
 	me.BasicClient.SetTeamId(me.BasicTeam.Id)
 	me.BasicChannel = me.CreateChannel(me.BasicClient, me.BasicTeam)
 	me.BasicPost = me.CreatePost(me.BasicClient, me.BasicChannel)
+
+	pinnedPostChannel := me.CreateChannel(me.BasicClient, me.BasicTeam)
+	me.PinnedPost = me.CreatePinnedPost(me.BasicClient, pinnedPostChannel)
 
 	return me
 }
@@ -257,6 +263,21 @@ func (me *TestHelper) CreatePost(client *model.Client, channel *model.Channel) *
 	post := &model.Post{
 		ChannelId: channel.Id,
 		Message:   "message_" + id,
+	}
+
+	utils.DisableDebugLogForTest()
+	r := client.Must(client.CreatePost(post)).Data.(*model.Post)
+	utils.EnableDebugLogForTest()
+	return r
+}
+
+func (me *TestHelper) CreatePinnedPost(client *model.Client, channel *model.Channel) *model.Post {
+	id := model.NewId()
+
+	post := &model.Post{
+		ChannelId: channel.Id,
+		Message:   "message_" + id,
+		IsPinned:  true,
 	}
 
 	utils.DisableDebugLogForTest()

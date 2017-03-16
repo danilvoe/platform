@@ -11,6 +11,7 @@ import (
 
 	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
+	"github.com/mattermost/platform/store"
 	"github.com/mattermost/platform/utils"
 )
 
@@ -264,6 +265,127 @@ func TestGetUserByEmail(t *testing.T) {
 	}
 	if ruser.LastName == "" {
 		t.Fatal("last name should not be blank")
+	}
+}
+
+func TestAutocompleteUsers(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+	teamId := th.BasicTeam.Id
+	channelId := th.BasicChannel.Id
+	username := th.BasicUser.Username
+
+	rusers, resp := Client.AutocompleteUsersInChannel(teamId, channelId, username, "")
+	CheckNoError(t, resp)
+
+	if len(rusers.Users) != 1 {
+		t.Fatal("should have returned 1 user")
+	}
+
+	rusers, resp = Client.AutocompleteUsersInChannel(teamId, channelId, "amazonses", "")
+	CheckNoError(t, resp)
+	if len(rusers.Users) != 0 {
+		t.Fatal("should have returned 0 users")
+	}
+
+	rusers, resp = Client.AutocompleteUsersInChannel(teamId, channelId, "", "")
+	CheckNoError(t, resp)
+	if len(rusers.Users) < 2 {
+		t.Fatal("should have many users")
+	}
+
+	rusers, resp = Client.AutocompleteUsersInTeam(teamId, username, "")
+	CheckNoError(t, resp)
+
+	if len(rusers.Users) != 1 {
+		t.Fatal("should have returned 1 user")
+	}
+
+	rusers, resp = Client.AutocompleteUsers(username, "")
+	CheckNoError(t, resp)
+
+	if len(rusers.Users) != 1 {
+		t.Fatal("should have returned 1 users")
+	}
+
+	rusers, resp = Client.AutocompleteUsers("", "")
+	CheckNoError(t, resp)
+
+	if len(rusers.Users) < 2 {
+		t.Fatal("should have returned many users")
+	}
+
+	rusers, resp = Client.AutocompleteUsersInTeam(teamId, "amazonses", "")
+	CheckNoError(t, resp)
+	if len(rusers.Users) != 0 {
+		t.Fatal("should have returned 0 users")
+	}
+
+	rusers, resp = Client.AutocompleteUsersInTeam(teamId, "", "")
+	CheckNoError(t, resp)
+	if len(rusers.Users) < 2 {
+		t.Fatal("should have many users")
+	}
+
+	Client.Logout()
+	_, resp = Client.AutocompleteUsersInChannel(teamId, channelId, username, "")
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = Client.AutocompleteUsersInTeam(teamId, username, "")
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = Client.AutocompleteUsers(username, "")
+	CheckUnauthorizedStatus(t, resp)
+
+	user := th.CreateUser()
+	Client.Login(user.Email, user.Password)
+	_, resp = Client.AutocompleteUsersInChannel(teamId, channelId, username, "")
+	CheckForbiddenStatus(t, resp)
+
+	_, resp = Client.AutocompleteUsersInTeam(teamId, username, "")
+	CheckForbiddenStatus(t, resp)
+
+	_, resp = Client.AutocompleteUsers(username, "")
+	CheckNoError(t, resp)
+
+	_, resp = th.SystemAdminClient.AutocompleteUsersInChannel(teamId, channelId, username, "")
+	CheckNoError(t, resp)
+
+	_, resp = th.SystemAdminClient.AutocompleteUsersInTeam(teamId, username, "")
+	CheckNoError(t, resp)
+
+	_, resp = th.SystemAdminClient.AutocompleteUsers(username, "")
+	CheckNoError(t, resp)
+
+	// Check against privacy config settings
+	namePrivacy := utils.Cfg.PrivacySettings.ShowFullName
+	defer func() {
+		utils.Cfg.PrivacySettings.ShowFullName = namePrivacy
+	}()
+	utils.Cfg.PrivacySettings.ShowFullName = false
+
+	th.LoginBasic()
+
+	rusers, resp = Client.AutocompleteUsers(username, "")
+	CheckNoError(t, resp)
+
+	if rusers.Users[0].FirstName != "" || rusers.Users[0].LastName != "" {
+		t.Fatal("should not show first/last name")
+	}
+
+	rusers, resp = Client.AutocompleteUsersInChannel(teamId, channelId, username, "")
+	CheckNoError(t, resp)
+
+	if rusers.Users[0].FirstName != "" || rusers.Users[0].LastName != "" {
+		t.Fatal("should not show first/last name")
+	}
+
+	rusers, resp = Client.AutocompleteUsersInTeam(teamId, username, "")
+	CheckNoError(t, resp)
+
+	if rusers.Users[0].FirstName != "" || rusers.Users[0].LastName != "" {
+		t.Fatal("should not show first/last name")
 	}
 }
 
@@ -682,6 +804,48 @@ func TestGetUsersNotInChannel(t *testing.T) {
 	CheckNoError(t, resp)
 }
 
+func TestUpdateUserMfa(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+
+	isLicensed := utils.IsLicensed
+	license := utils.License
+	enableMfa := *utils.Cfg.ServiceSettings.EnableMultifactorAuthentication
+	defer func() {
+		utils.IsLicensed = isLicensed
+		utils.License = license
+		*utils.Cfg.ServiceSettings.EnableMultifactorAuthentication = enableMfa
+	}()
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+
+	team := model.Team{DisplayName: "Name", Name: "z-z-" + model.NewId() + "a", Email: "test@nowhere.com", Type: model.TEAM_OPEN}
+	rteam, _ := Client.CreateTeam(&team)
+
+	user := model.User{Email: strings.ToLower(model.NewId()) + "success+test@simulator.amazonses.com", Nickname: "Corey Hulen", Password: "passwd1"}
+	ruser, _ := Client.CreateUser(&user)
+	LinkUserToTeam(ruser, rteam)
+	store.Must(app.Srv.Store.User().VerifyEmail(ruser.Id))
+
+	Client.Logout()
+	_, resp := Client.UpdateUserMfa(ruser.Id, "12334", true)
+	CheckUnauthorizedStatus(t, resp)
+
+	Client.Login(user.Email, user.Password)
+	_, resp = Client.UpdateUserMfa("fail", "56789", false)
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.UpdateUserMfa(ruser.Id, "", true)
+	CheckErrorMessage(t, resp, "api.context.invalid_body_param.app_error")
+
+	*utils.Cfg.ServiceSettings.EnableMultifactorAuthentication = true
+
+	_, resp = Client.UpdateUserMfa(ruser.Id, "123456", false)
+	CheckNotImplementedStatus(t, resp)
+}
+
 func TestUpdateUserPassword(t *testing.T) {
 	th := Setup().InitBasic().InitSystemAdmin()
 	defer TearDown()
@@ -789,14 +953,26 @@ func TestResetPassword(t *testing.T) {
 	}
 
 	// Check if the email was send to the right email address and the recovery key match
-	if resultsMailbox, err := utils.GetMailBox(user.Email); err != nil && !strings.ContainsAny(resultsMailbox[0].To[0], user.Email) {
-		t.Fatal("Wrong To recipient")
-	} else {
-		if resultsEmail, err := utils.GetMessageFromMailbox(user.Email, resultsMailbox[0].ID); err == nil {
-			if !strings.Contains(resultsEmail.Body.Text, recovery.Code) {
-				t.Log(resultsEmail.Body.Text)
-				t.Log(recovery.Code)
-				t.Fatal("Received wrong recovery code")
+	var resultsMailbox utils.JSONMessageHeaderInbucket
+	err := utils.RetryInbucket(5, func() error {
+		var err error
+		resultsMailbox, err = utils.GetMailBox(user.Email)
+		return err
+	})
+	if err != nil {
+		t.Log(err)
+		t.Log("No email was received, maybe due load on the server. Disabling this verification")
+	}
+	if err == nil && len(resultsMailbox) > 0 {
+		if !strings.ContainsAny(resultsMailbox[0].To[0], user.Email) {
+			t.Fatal("Wrong To recipient")
+		} else {
+			if resultsEmail, err := utils.GetMessageFromMailbox(user.Email, resultsMailbox[0].ID); err == nil {
+				if !strings.Contains(resultsEmail.Body.Text, recovery.Code) {
+					t.Log(resultsEmail.Body.Text)
+					t.Log(recovery.Code)
+					t.Fatal("Received wrong recovery code")
+				}
 			}
 		}
 	}

@@ -313,7 +313,7 @@ func UpdateChannelMemberNotifyProps(data map[string]string, channelId string, us
 func DeleteChannel(channel *model.Channel, userId string) *model.AppError {
 	uc := Srv.Store.User().Get(userId)
 	ihc := Srv.Store.Webhook().GetIncomingByChannel(channel.Id)
-	ohc := Srv.Store.Webhook().GetOutgoingByChannel(channel.Id)
+	ohc := Srv.Store.Webhook().GetOutgoingByChannel(channel.Id, -1, -1)
 
 	if uresult := <-uc; uresult.Err != nil {
 		return uresult.Err
@@ -646,6 +646,14 @@ func GetChannelsUserNotIn(teamId string, userId string, offset int, limit int) (
 	}
 }
 
+func GetPublicChannelsForTeam(teamId string, offset int, limit int) (*model.ChannelList, *model.AppError) {
+	if result := <-Srv.Store.Channel().GetPublicChannelsForTeam(teamId, offset, limit); result.Err != nil {
+		return nil, result.Err
+	} else {
+		return result.Data.(*model.ChannelList), nil
+	}
+}
+
 func GetChannelMember(channelId string, userId string) (*model.ChannelMember, *model.AppError) {
 	if result := <-Srv.Store.Channel().GetMember(channelId, userId); result.Err != nil {
 		return nil, result.Err
@@ -695,6 +703,9 @@ func GetChannelCounts(teamId string, userId string) (*model.ChannelCounts, *mode
 }
 
 func JoinChannel(channel *model.Channel, userId string) *model.AppError {
+	if channel.DeleteAt > 0 {
+		return model.NewLocAppError("JoinChannel", "api.channel.join_channel.already_deleted.app_error", nil, "")
+	}
 	userChan := Srv.Store.User().Get(userId)
 	memberChan := Srv.Store.Channel().GetMember(channel.Id, userId)
 

@@ -132,7 +132,7 @@ export function getMyChannelMembers() {
             (err) => {
                 callTracker.getChannelsUnread = 0;
                 dispatchError(err, 'getMyChannelMembers');
-                reject();
+                reject(new Error('Unable to getMyChannelMembers'));
             }
         );
     });
@@ -161,7 +161,7 @@ export function getMyChannelMembersForTeam(teamId) {
             (err) => {
                 callTracker[`getMyChannelMembers${teamId}`] = 0;
                 dispatchError(err, 'getMyChannelMembersForTeam');
-                reject();
+                reject(new Error('Unable to getMyChannelMembersForTeam'));
             }
         );
     });
@@ -303,7 +303,7 @@ export function getChannelMember(channelId, userId) {
             (err) => {
                 callTracker[`getChannelMember${channelId}${userId}`] = 0;
                 dispatchError(err, 'getChannelMember');
-                reject();
+                reject(new Error('Unable to getChannelMeber'));
             }
         );
     });
@@ -1603,6 +1603,40 @@ export function deleteEmoji(id) {
         (err) => {
             callTracker[callName] = 0;
             dispatchError(err, 'deleteEmoji');
+        }
+    );
+}
+
+export function pinPost(channelId, reaction) {
+    Client.pinPost(
+        channelId,
+        reaction,
+        () => {
+            // the "post_edited" websocket event take cares of updating the posts
+            // the action below is mostly dispatched for the RHS to update
+            AppDispatcher.handleServerAction({
+                type: ActionTypes.RECEIVED_POST_PINNED
+            });
+        },
+        (err) => {
+            dispatchError(err, 'pinPost');
+        }
+    );
+}
+
+export function unpinPost(channelId, reaction) {
+    Client.unpinPost(
+        channelId,
+        reaction,
+        () => {
+            // the "post_edited" websocket event take cares of updating the posts
+            // the action below is mostly dispatched for the RHS to update
+            AppDispatcher.handleServerAction({
+                type: ActionTypes.RECEIVED_POST_UNPINNED
+            });
+        },
+        (err) => {
+            dispatchError(err, 'unpinPost');
         }
     );
 }

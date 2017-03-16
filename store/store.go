@@ -77,7 +77,8 @@ type TeamStore interface {
 	GetTotalMemberCount(teamId string) StoreChannel
 	GetActiveMemberCount(teamId string) StoreChannel
 	GetTeamsForUser(userId string) StoreChannel
-	GetTeamsUnreadForUser(teamId, userId string) StoreChannel
+	GetChannelUnreadsForAllTeams(excludeTeamId, userId string) StoreChannel
+	GetChannelUnreadsForTeam(teamId, userId string) StoreChannel
 	RemoveMember(teamId string, userId string) StoreChannel
 	RemoveAllMembersByTeam(teamId string) StoreChannel
 	RemoveAllMembersByUser(userId string) StoreChannel
@@ -101,6 +102,7 @@ type ChannelStore interface {
 	GetDeletedByName(team_id string, name string) StoreChannel
 	GetChannels(teamId string, userId string) StoreChannel
 	GetMoreChannels(teamId string, userId string, offset int, limit int) StoreChannel
+	GetPublicChannelsForTeam(teamId string, offset int, limit int) StoreChannel
 	GetChannelCounts(teamId string, userId string) StoreChannel
 	GetTeamChannels(teamId string) StoreChannel
 	GetAll(teamId string) StoreChannel
@@ -118,6 +120,7 @@ type ChannelStore interface {
 	InvalidateMemberCount(channelId string)
 	GetMemberCountFromCache(channelId string) int64
 	GetMemberCount(channelId string, allowFromCache bool) StoreChannel
+	GetPinnedPosts(channelId string) StoreChannel
 	RemoveMember(channelId string, userId string) StoreChannel
 	PermanentDeleteMembersByUser(userId string) StoreChannel
 	PermanentDeleteMembersByChannel(channelId string) StoreChannel
@@ -225,7 +228,7 @@ type ComplianceStore interface {
 	Save(compliance *model.Compliance) StoreChannel
 	Update(compliance *model.Compliance) StoreChannel
 	Get(id string) StoreChannel
-	GetAll() StoreChannel
+	GetAll(offset, limit int) StoreChannel
 	ComplianceExport(compliance *model.Compliance) StoreChannel
 }
 
@@ -270,8 +273,9 @@ type WebhookStore interface {
 
 	SaveOutgoing(webhook *model.OutgoingWebhook) StoreChannel
 	GetOutgoing(id string) StoreChannel
-	GetOutgoingByChannel(channelId string) StoreChannel
-	GetOutgoingByTeam(teamId string) StoreChannel
+	GetOutgoingList(offset, limit int) StoreChannel
+	GetOutgoingByChannel(channelId string, offset, limit int) StoreChannel
+	GetOutgoingByTeam(teamId string, offset, limit int) StoreChannel
 	DeleteOutgoing(webhookId string, time int64) StoreChannel
 	PermanentDeleteOutgoingByUser(userId string) StoreChannel
 	UpdateOutgoing(hook *model.OutgoingWebhook) StoreChannel

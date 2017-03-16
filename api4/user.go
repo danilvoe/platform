@@ -11,6 +11,7 @@ import (
 	l4g "github.com/alecthomas/log4go"
 	"github.com/mattermost/platform/app"
 	"github.com/mattermost/platform/model"
+	"github.com/mattermost/platform/store"
 	"github.com/mattermost/platform/utils"
 )
 
@@ -20,12 +21,14 @@ func InitUser() {
 	BaseRoutes.Users.Handle("", ApiHandler(createUser)).Methods("POST")
 	BaseRoutes.Users.Handle("", ApiSessionRequired(getUsers)).Methods("GET")
 	BaseRoutes.Users.Handle("/ids", ApiSessionRequired(getUsersByIds)).Methods("POST")
+	BaseRoutes.Users.Handle("/autocomplete", ApiSessionRequired(autocompleteUsers)).Methods("GET")
 
 	BaseRoutes.User.Handle("", ApiSessionRequired(getUser)).Methods("GET")
 	BaseRoutes.User.Handle("/image", ApiSessionRequired(getProfileImage)).Methods("GET")
 	BaseRoutes.User.Handle("/image", ApiSessionRequired(setProfileImage)).Methods("POST")
 	BaseRoutes.User.Handle("", ApiSessionRequired(updateUser)).Methods("PUT")
 	BaseRoutes.User.Handle("/patch", ApiSessionRequired(patchUser)).Methods("PUT")
+	BaseRoutes.User.Handle("/mfa", ApiSessionRequired(updateUserMfa)).Methods("PUT")
 	BaseRoutes.User.Handle("", ApiSessionRequired(deleteUser)).Methods("DELETE")
 	BaseRoutes.User.Handle("/roles", ApiSessionRequired(updateUserRoles)).Methods("PUT")
 	BaseRoutes.User.Handle("/password", ApiSessionRequired(updatePassword)).Methods("PUT")
@@ -331,6 +334,56 @@ func getUsersByIds(c *Context, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func autocompleteUsers(c *Context, w http.ResponseWriter, r *http.Request) {
+	channelId := r.URL.Query().Get("in_channel")
+	teamId := r.URL.Query().Get("in_team")
+	name := r.URL.Query().Get("name")
+
+	autocomplete := new(model.UserAutocomplete)
+	var err *model.AppError
+
+	searchOptions := map[string]bool{}
+
+	hideFullName := !utils.Cfg.PrivacySettings.ShowFullName
+	if hideFullName && !app.SessionHasPermissionTo(c.Session, model.PERMISSION_MANAGE_SYSTEM) {
+		searchOptions[store.USER_SEARCH_OPTION_NAMES_ONLY_NO_FULL_NAME] = true
+	} else {
+		searchOptions[store.USER_SEARCH_OPTION_NAMES_ONLY] = true
+	}
+
+	if len(teamId) > 0 {
+		if len(channelId) > 0 {
+			if !app.SessionHasPermissionToChannel(c.Session, channelId, model.PERMISSION_READ_CHANNEL) {
+				c.SetPermissionError(model.PERMISSION_READ_CHANNEL)
+				return
+			}
+
+			result, _ := app.AutocompleteUsersInChannel(teamId, channelId, name, searchOptions, c.IsSystemAdmin())
+			autocomplete.Users = result.InChannel
+			autocomplete.OutOfChannel = result.OutOfChannel
+		} else {
+			if !app.SessionHasPermissionToTeam(c.Session, teamId, model.PERMISSION_VIEW_TEAM) {
+				c.SetPermissionError(model.PERMISSION_VIEW_TEAM)
+				return
+			}
+
+			result, _ := app.AutocompleteUsersInTeam(teamId, name, searchOptions, c.IsSystemAdmin())
+			autocomplete.Users = result.InTeam
+		}
+	} else {
+		// No permission check required
+		result, _ := app.SearchUsersInTeam("", name, searchOptions, c.IsSystemAdmin())
+		autocomplete.Users = result
+	}
+
+	if err != nil {
+		c.Err = err
+		return
+	} else {
+		w.Write([]byte((autocomplete.ToJson())))
+	}
+}
+
 func updateUser(c *Context, w http.ResponseWriter, r *http.Request) {
 	c.RequireUserId()
 	if c.Err != nil {
@@ -438,6 +491,45 @@ func updateUserRoles(c *Context, w http.ResponseWriter, r *http.Request) {
 		c.LogAuditWithUserId(c.Params.UserId, "roles="+newRoles)
 	}
 
+	ReturnStatusOK(w)
+}
+
+func updateUserMfa(c *Context, w http.ResponseWriter, r *http.Request) {
+	c.RequireUserId()
+	if c.Err != nil {
+		return
+	}
+
+	if !app.SessionHasPermissionToUser(c.Session, c.Params.UserId) {
+		c.SetPermissionError(model.PERMISSION_EDIT_OTHER_USERS)
+		return
+	}
+
+	props := model.StringInterfaceFromJson(r.Body)
+
+	activate, ok := props["activate"].(bool)
+	if !ok {
+		c.SetInvalidParam("activate")
+		return
+	}
+
+	code := ""
+	if activate {
+		code, ok = props["code"].(string)
+		if !ok || len(code) == 0 {
+			c.SetInvalidParam("code")
+			return
+		}
+	}
+
+	c.LogAudit("attempt")
+
+	if err := app.UpdateMfa(activate, c.Params.UserId, code, c.GetSiteURL()); err != nil {
+		c.Err = err
+		return
+	}
+
+	c.LogAudit("success - mfa updated")
 	ReturnStatusOK(w)
 }
 

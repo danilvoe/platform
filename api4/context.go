@@ -396,6 +396,17 @@ func (c *Context) RequireFileId() *Context {
 	return c
 }
 
+func (c *Context) RequireReportId() *Context {
+	if c.Err != nil {
+		return c
+	}
+
+	if len(c.Params.ReportId) != 26 {
+		c.SetInvalidUrlParam("report_id")
+	}
+	return c
+}
+
 func (c *Context) RequireTeamName() *Context {
 	if c.Err != nil {
 		return c
@@ -451,6 +462,18 @@ func (c *Context) RequirePreferenceName() *Context {
 
 	if !model.IsValidAlphaNum(c.Params.PreferenceName, true) {
 		c.SetInvalidUrlParam("preference_name")
+	}
+
+	return c
+}
+
+func (c *Context) RequireHookId() *Context {
+	if c.Err != nil {
+		return c
+	}
+
+	if len(c.Params.HookId) != 26 {
+		c.SetInvalidUrlParam("hook_id")
 	}
 
 	return c

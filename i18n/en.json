@@ -8,6 +8,10 @@
     "translation": "Link previews have been disabled by the system administrator."
   },
   {
+    "id": "model.client.upload_saml_cert.app_error",
+    "translation": "Error creating SAML certificate multipart form request"
+  },
+  {
     "id": "August",
     "translation": "August"
   },
@@ -68,6 +72,10 @@
     "translation": "Error reading log file"
   },
   {
+    "id": "api.cluster.init.debug",
+    "translation": "Initializing cluster API routes"
+  },
+  {
     "id": "api.admin.get_brand_image.not_available.app_error",
     "translation": "Custom branding is not configured or supported on this server"
   },
@@ -76,8 +84,16 @@
     "translation": "Image storage is not configured."
   },
   {
+    "id": "api.ldap.init.debug",
+    "translation": "Initializing LDAP API routes"
+  },
+  {
     "id": "api.admin.init.debug",
     "translation": "Initializing admin API routes"
+  },
+  {
+    "id": "api.compliance.init.debug",
+    "translation": "Initializing compliance API routes"
   },
   {
     "id": "api.admin.recycle_db_end.warn",
@@ -134,6 +150,10 @@
   {
     "id": "api.admin.upload_brand_image.too_large.app_error",
     "translation": "Unable to upload file. File is too large."
+  },
+  {
+    "id": "api.brand.init.debug",
+    "translation": "Initializing brand API routes"
   },
   {
     "id": "api.api.init.parsing_templates.debug",
@@ -290,6 +310,10 @@
   {
     "id": "api.channel.join_channel.permissions.app_error",
     "translation": "You do not have the appropriate permissions"
+  },
+  {
+    "id": "api.channel.join_channel.already_deleted.app_error",
+    "translation": "Channel is already deleted"
   },
   {
     "id": "api.channel.join_channel.post_and_forget",
@@ -1014,7 +1038,7 @@
     "translation": "The public link does not appear to be valid"
   },
   {
-    "id": "api.file.get_file_preview.no_thumbnail.app_error",
+    "id": "api.file.get_file_preview.no_preview.app_error",
     "translation": "File doesn't have a preview image"
   },
   {
@@ -4624,6 +4648,10 @@
     "translation": "Problem updating members last updated time"
   },
   {
+    "id": "store.sql_channel.pinned_posts.app_error",
+    "translation": "We couldn't find the pinned posts"
+  },
+  {
     "id": "store.sql_channel.get.existing.app_error",
     "translation": "We couldn't find the existing channel"
   },
@@ -4698,6 +4726,10 @@
   {
     "id": "store.sql_channel.get_more_channels.get.app_error",
     "translation": "We couldn't get the channels"
+  },
+  {
+    "id": "store.sql_channel.get_public_channels.get.app_error",
+    "translation": "We couldn't get public channels"
   },
   {
     "id": "store.sql_channel.increment_mention_count.app_error",
